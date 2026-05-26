@@ -6,12 +6,18 @@ import { useNativeUsdPriceContext } from './native-usd-price-provider'
 
 interface TokenStatsProps {
     marketCap: string
-    isGraduated: boolean
+    isGraduated?: boolean
     athMarketCap?: string
+    priceChange1dPct?: number | null
     className?: string
 }
 
-export function TokenStats({ marketCap, isGraduated, athMarketCap, className }: TokenStatsProps) {
+export function TokenStats({
+    marketCap,
+    athMarketCap,
+    priceChange1dPct,
+    className,
+}: TokenStatsProps) {
     const { nativeUsdPrice } = useNativeUsdPriceContext()
     const mcapNum = parseFloat(marketCap)
     const displayMcap = nativeUsdPrice !== null ? mcapNum * nativeUsdPrice : mcapNum
@@ -21,18 +27,31 @@ export function TokenStats({ marketCap, isGraduated, athMarketCap, className }: 
         <div className={cn('flex items-center justify-between gap-6', className)}>
             {/* Left — mcap */}
             <div className="shrink-0">
-                <div className="text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
-                    {nativeUsdPrice !== null
-                        ? `$${formatCompact(displayMcap)}`
-                        : `${formatCompact(displayMcap)} KUB`}
+                <div className="flex items-center gap-2">
+                    <div className="text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
+                        {nativeUsdPrice !== null
+                            ? `$${formatCompact(displayMcap)}`
+                            : `${formatCompact(displayMcap)} KUB`}
+                    </div>
+                    {priceChange1dPct != null && (
+                        <span
+                            className={cn(
+                                'inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums',
+                                priceChange1dPct >= 0
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : 'bg-red-500/15 text-red-500'
+                            )}
+                        >
+                            {priceChange1dPct >= 0 ? '+' : ''}
+                            {priceChange1dPct.toFixed(2)}%
+                        </span>
+                    )}
                 </div>
                 <div className="text-xs text-muted-foreground uppercase">mcap</div>
             </div>
 
-            {/* Right — ATH progress bar or Graduated */}
-            {isGraduated ? (
-                <div className="w-1/3 text-sm font-semibold text-emerald-400">Graduated</div>
-            ) : athNum > 0 ? (
+            {/* Right — ATH progress bar */}
+            {athNum > 0 ? (
                 <div className="w-1/3 space-y-1.5">
                     <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
                         <div

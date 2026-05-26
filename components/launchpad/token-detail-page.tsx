@@ -5,6 +5,10 @@ import type { Address } from 'viem'
 import { formatEther } from 'viem'
 import { ERC20_ABI } from '@/lib/abis/erc20'
 import { PUMP_CORE_NATIVE_CHAIN_ID } from '@/lib/abis/pump-core-native'
+import { getV3Config } from '@/lib/dex-config'
+import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
+import { UNISWAP_V3_FACTORY_ABI } from '@/lib/abis/uniswap-v3-factory'
+import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
 import { useTokenList } from '@/hooks/useTokenList'
 import { formatAddress, formatTimeAgo } from '@/lib/utils'
@@ -18,9 +22,10 @@ import { RecentTrades } from './recent-trades'
 import { TokenHolders } from './token-holders'
 import { TokenDetailSkeleton } from './token-detail-skeleton'
 import { GraduationProgress } from './graduation-progress'
+import type { DailyMetrics } from '@/services/chart'
 import { Globe, ArrowLeft, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 
 interface TokenDetailPageProps {
     tokenAddr: Address
@@ -64,20 +69,81 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
     const tokenInfo = allTokens.find((t) => t.address.toLowerCase() === tokenAddr.toLowerCase())
     const athMarketCap = snapshotMap.get(tokenAddr.toLowerCase())?.athMarketCapNative
 
-    const marketCap =
-        virtualAmount > 0n && nativeReserve > 0n && tokenReserve > 0n
-            ? String(
-                  (parseFloat(formatEther(virtualAmount + nativeReserve)) /
-                      parseFloat(formatEther(tokenReserve))) *
-                      1e9
-              )
-            : '0'
+    // Resolve V3 pool address for graduated tokens
+    const v3Config = getV3Config(PUMP_CORE_NATIVE_CHAIN_ID)
+    const wrappedNative = INTERMEDIARY_TOKENS[PUMP_CORE_NATIVE_CHAIN_ID]?.wrappedNative
+
+    const { data: poolAddressData } = useReadContract({
+        address: v3Config!.factory as Address,
+        abi: UNISWAP_V3_FACTORY_ABI,
+        functionName: 'getPool' as const,
+        args: tokenAddr && wrappedNative ? [tokenAddr, wrappedNative as Address, 10000] : undefined,
+        chainId: PUMP_CORE_NATIVE_CHAIN_ID,
+        query: { enabled: !!isGraduated && !!tokenAddr && !!wrappedNative },
+    })
+
+    const poolAddress =
+        poolAddressData && poolAddressData !== '0x0000000000000000000000000000000000000000'
+            ? (poolAddressData as Address)
+            : undefined
+
+    // Read V3 pool slot0 for graduated tokens
+    const { data: slot0 } = useReadContract({
+        address: poolAddress,
+        abi: UNISWAP_V3_POOL_ABI,
+        functionName: 'slot0' as const,
+        chainId: PUMP_CORE_NATIVE_CHAIN_ID,
+        query: { enabled: !!isGraduated && !!poolAddress },
+    })
+
+    const marketCap = useMemo(() => {
+        if (isGraduated && poolAddress && slot0 && wrappedNative) {
+            const sqrtPriceX96 = (
+                slot0 as [bigint, number, number, number, number, number, boolean]
+            )[0]
+            if (sqrtPriceX96 > 0n) {
+                const Q96 = 2n ** 96n
+                const tokenIsToken0 = tokenAddr.toLowerCase() < wrappedNative.toLowerCase()
+                let priceRaw: bigint
+                if (tokenIsToken0) {
+                    priceRaw = (sqrtPriceX96 * sqrtPriceX96 * 10n ** 18n) / (Q96 * Q96)
+                } else {
+                    priceRaw = (Q96 * Q96 * 10n ** 18n) / (sqrtPriceX96 * sqrtPriceX96)
+                }
+                const priceNative = Number(priceRaw) / 1e18
+                return String(priceNative * 1e9)
+            }
+        }
+        // Fallback to bonding curve mcap
+        if (virtualAmount > 0n && nativeReserve > 0n && tokenReserve > 0n) {
+            return String(
+                (parseFloat(formatEther(virtualAmount + nativeReserve)) /
+                    parseFloat(formatEther(tokenReserve))) *
+                    1e9
+            )
+        }
+        return '0'
+    }, [
+        isGraduated,
+        poolAddress,
+        slot0,
+        wrappedNative,
+        tokenAddr,
+        virtualAmount,
+        nativeReserve,
+        tokenReserve,
+    ])
 
     const symbol = (tokenSymbol as string) || 'TOKEN'
     const name = (tokenName as string) || 'Unknown Token'
     const decimals = (tokenDecimals as number) || 18
 
     const [copied, setCopied] = useState(false)
+    const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics | null>(null)
+
+    const handleDailyMetricsChange = useCallback((metrics: DailyMetrics | null) => {
+        setDailyMetrics(metrics)
+    }, [])
 
     const copyAddress = () => {
         navigator.clipboard.writeText(tokenAddr)
@@ -101,7 +167,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
             </Link>
 
             {/* Two-column grid */}
-            <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-12">
+            <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-12 items-start">
                 {/* Left column — token info, chart, stats, trades */}
                 <div className="order-2 min-w-0 space-y-3 md:space-y-4 lg:order-1 lg:col-span-8">
                     {/* Price header */}
@@ -173,6 +239,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                         marketCap={marketCap}
                         isGraduated={isGraduated}
                         athMarketCap={athMarketCap}
+                        priceChange1dPct={dailyMetrics?.priceChange1dPct ?? null}
                     />
 
                     {/* Chart */}
@@ -181,6 +248,10 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                         nativeReserve={nativeReserve}
                         tokenReserve={tokenReserve}
                         virtualAmount={virtualAmount}
+                        isGraduated={isGraduated}
+                        poolAddress={poolAddress}
+                        graduatedAt={tokenInfo?.graduatedAt ?? null}
+                        onDailyMetricsChange={handleDailyMetricsChange}
                     />
 
                     {/* About token */}
@@ -260,7 +331,12 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                     )}
 
                     {/* Recent trades */}
-                    <RecentTrades tokenAddr={tokenAddr} tokenSymbol={symbol} />
+                    <RecentTrades
+                        tokenAddr={tokenAddr}
+                        tokenSymbol={symbol}
+                        poolAddress={poolAddress}
+                        isGraduated={isGraduated}
+                    />
                 </div>
 
                 {/* Right column — trade panel + holders */}
@@ -271,25 +347,28 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                             tokenSymbol={symbol}
                             tokenDecimals={decimals}
                             isGraduated={isGraduated}
+                            poolAddress={poolAddress}
+                            poolFee={isGraduated ? 10000 : undefined}
                         />
-                        {!isGraduated &&
-                            nativeReserve !== undefined &&
-                            graduationAmount !== undefined && (
-                                <Card>
-                                    <CardContent className="p-4">
-                                        <h4 className="mb-2 text-sm font-semibold">
-                                            Bonding Curve
-                                        </h4>
-                                        <GraduationProgress
-                                            nativeReserve={nativeReserve}
-                                            graduationAmount={graduationAmount}
-                                            isGraduated={false}
-                                        />
-                                    </CardContent>
-                                </Card>
-                            )}
+                        {nativeReserve !== undefined && graduationAmount !== undefined && (
+                            <Card>
+                                <CardContent className="p-4">
+                                    <h4 className="mb-2 text-sm font-semibold">Bonding Curve</h4>
+                                    <GraduationProgress
+                                        nativeReserve={nativeReserve}
+                                        graduationAmount={graduationAmount}
+                                        isGraduated={!!isGraduated}
+                                    />
+                                </CardContent>
+                            </Card>
+                        )}
                         <div className="hidden lg:block">
-                            <TokenHolders tokenAddr={tokenAddr} creator={tokenInfo?.creator} />
+                            <TokenHolders
+                                tokenAddr={tokenAddr}
+                                creator={tokenInfo?.creator}
+                                poolAddress={poolAddress}
+                                isGraduated={isGraduated}
+                            />
                         </div>
                     </div>
                 </div>
@@ -297,7 +376,12 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
 
             {/* Holders — full width at bottom on mobile/tablet */}
             <div className="lg:hidden">
-                <TokenHolders tokenAddr={tokenAddr} creator={tokenInfo?.creator} />
+                <TokenHolders
+                    tokenAddr={tokenAddr}
+                    creator={tokenInfo?.creator}
+                    poolAddress={poolAddress}
+                    isGraduated={isGraduated}
+                />
             </div>
         </div>
     )

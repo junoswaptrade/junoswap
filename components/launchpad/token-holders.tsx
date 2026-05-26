@@ -26,6 +26,8 @@ const PAGE_SIZE = 10
 interface TokenHoldersProps {
     tokenAddr: Address
     creator?: Address
+    poolAddress?: Address
+    isGraduated?: boolean
     className?: string
 }
 
@@ -87,9 +89,24 @@ function LoadingState() {
     )
 }
 
-export function TokenHolders({ tokenAddr, creator, className }: TokenHoldersProps) {
+export function TokenHolders({
+    tokenAddr,
+    creator,
+    poolAddress,
+    isGraduated,
+    className,
+}: TokenHoldersProps) {
     const [page, setPage] = useState(1)
-    const { holders, holderCount, isLoading } = useTokenHolders(tokenAddr)
+    const {
+        holders: rawHolders,
+        holderCount: rawHolderCount,
+        isLoading,
+    } = useTokenHolders(tokenAddr, poolAddress, isGraduated)
+    const filteredPool = isGraduated && poolAddress
+    const holders = filteredPool
+        ? rawHolders.filter((h) => h.address.toLowerCase() !== poolAddress!.toLowerCase())
+        : rawHolders
+    const holderCount = filteredPool ? Math.max(0, rawHolderCount - 1) : rawHolderCount
 
     const totalPages = Math.ceil(holders.length / PAGE_SIZE)
     const paginatedHolders = holders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
