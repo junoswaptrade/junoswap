@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useChainId, useSwitchChain } from 'wagmi'
 import { useDebounce } from './useDebounce'
 import { useSwapStore } from '@/store/swap-store'
+import { useReferralStore } from '@/store/referral-store'
 import {
     parseSwapSearchParams,
     buildSwapSearchParams,
@@ -27,6 +28,7 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
     const searchParams = useSearchParams()
     const chainId = useChainId()
     const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+    const storedReferrer = useReferralStore((s) => s.referrer)
     const {
         tokenIn,
         tokenOut,
@@ -95,6 +97,7 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
                                             input: urlParams.input,
                                             output: urlParams.output,
                                             amount: urlParams.amount,
+                                            ref: urlParams.ref,
                                         })
                                         const newUrl = `${window.location.pathname}${newParams.toString() ? `?${newParams.toString()}` : ''}`
                                         router.replace(newUrl, { scroll: false })
@@ -168,6 +171,8 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
             output: debouncedTokenOut?.address,
             amount: debouncedAmountIn || undefined,
             chain: chainId.toString(),
+            // Re-append the persisted referrer so the ?ref= link survives navigation
+            ref: searchParams.get('ref') || storedReferrer || undefined,
         })
         const currentParams = new URLSearchParams(searchParams.toString())
         const newParamsStr = newParams.toString()
@@ -189,6 +194,7 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
         router,
         searchParams,
         isSwitchingChain,
+        storedReferrer,
     ])
 
     // Whether a URL-provided token is still waiting to be applied to the store.
