@@ -7,6 +7,7 @@ import { getTokensForChain } from '@/lib/tokens'
 import { isNativeToken } from '@/lib/wagmi'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { normalizePinataGateway } from '@/lib/ipfs'
 import { isLaunchpadChain as isLaunchpadChainFn } from '@/lib/abis/bonding-curve-junoswap'
 import { useGraduatedTokens } from '@/hooks/useGraduatedTokens'
 import type { Token } from '@/types/tokens'
@@ -100,7 +101,7 @@ export function useTokenDiscovery(chainId: number) {
                         name: t.name || 'Unknown Token',
                         decimals: 18,
                         chainId,
-                        logo: t.logo ?? undefined,
+                        logo: t.logo ? normalizePinataGateway(t.logo) : undefined,
                     })
                 )
             } catch (e) {
@@ -144,6 +145,10 @@ export function useTokenDiscovery(chainId: number) {
         () => new Set(graduatedTokens.map((t) => t.address.toLowerCase())),
         [graduatedTokens]
     )
+    const bondingCurveAddresses = useMemo(
+        () => new Set((bondingCurveTokens ?? []).map((t) => t.address.toLowerCase())),
+        [bondingCurveTokens]
+    )
 
     const getTokenType = useMemo(
         () =>
@@ -151,11 +156,13 @@ export function useTokenDiscovery(chainId: number) {
                 const key = token.address.toLowerCase()
                 if (staticAddresses.has(key)) return 'static'
                 if (graduatedAddresses.has(key)) return 'graduated'
-                // The launchpad is only deployed on specific chains; off those
-                // chains an unrecognized token is never a bonding-curve token.
-                return isLaunchpadChain ? 'bonding_curve' : 'static'
+                if (bondingCurveAddresses.has(key)) return 'bonding_curve'
+                // Unknown tokens (V3-discovered, arbitrary held KAP20) are not
+                // launchpad tokens. Off launchpad chains the bonding-curve set is
+                // empty, so everything correctly resolves to static.
+                return 'static'
             },
-        [staticAddresses, graduatedAddresses, isLaunchpadChain]
+        [staticAddresses, graduatedAddresses, bondingCurveAddresses]
     )
 
     const erc20Tokens = useMemo(
