@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { Header } from '@/components/layout/header'
 import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -46,9 +47,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="en" suppressHydrationWarning>
             <body className={inter.className}>
                 <Providers>
-                    <Header />
-                    <main>{children}</main>
-                    <Toaster />
+                    <TooltipProvider delayDuration={200}>
+                        <Header />
+                        <main>{children}</main>
+                        <Toaster />
+                    </TooltipProvider>
                 </Providers>
             </body>
         </html>

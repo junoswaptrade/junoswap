@@ -159,11 +159,7 @@ export function TokenHolders({
                             </Table>
                         </div>
                         {totalPages > 1 && (
-                            <div className="flex items-center justify-between border-t border-border/40 px-3 py-2.5">
-                                <span className="text-xs text-muted-foreground">
-                                    {(page - 1) * PAGE_SIZE + 1}&ndash;
-                                    {Math.min(page * PAGE_SIZE, holders.length)} of {holders.length}
-                                </span>
+                            <div className="flex items-center justify-end border-t border-border/40 px-3 py-2.5">
                                 <PaginationControls
                                     currentPage={page}
                                     totalPages={totalPages}

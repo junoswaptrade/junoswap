@@ -19,6 +19,10 @@ export function formatTimeAgo(timestampSeconds: number): string {
     return `${Math.floor(d / 2592000)}mo ago`
 }
 
+export function formatFullDate(timestampSeconds: number): string {
+    return new Date(timestampSeconds * 1000).toLocaleString()
+}
+
 /**
  * Validates numeric input for token amounts
  * Allows: digits, one decimal point, leading/trailing decimal

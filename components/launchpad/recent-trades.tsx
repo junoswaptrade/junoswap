@@ -8,7 +8,8 @@ import { useAccount } from 'wagmi'
 import { useTokenSwapEvents } from '@/hooks/useTokenSwapEvents'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatKub, formatTokenAmount, formatCompact } from '@/services/launchpad'
-import { cn, formatTimeAgo } from '@/lib/utils'
+import { cn, formatTimeAgo, formatFullDate } from '@/lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { getExplorerTxUrl } from '@/lib/explorer'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { PortfolioLink } from '@/components/ui/portfolio-link'
@@ -127,7 +128,12 @@ function TradeRow({
             </TableCell>
 
             <TableCell className="py-2.5 text-right text-xs text-muted-foreground">
-                {formatTimeAgo(trade.timestamp)}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="cursor-default">{formatTimeAgo(trade.timestamp)}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>{formatFullDate(trade.timestamp)}</TooltipContent>
+                </Tooltip>
             </TableCell>
 
             <TableCell

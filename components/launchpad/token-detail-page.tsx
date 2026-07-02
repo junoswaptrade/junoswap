@@ -7,7 +7,8 @@ import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
 import { useTokenList } from '@/hooks/useTokenList'
 import { useGraduatedPoolAddress } from '@/hooks/useGraduatedPoolAddress'
-import { formatAddress, formatTimeAgo } from '@/lib/utils'
+import { formatAddress, formatTimeAgo, formatFullDate } from '@/lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { TokenIcon } from '@/components/ui/token-icon'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -119,7 +120,16 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                                         {tokenInfo.createdTime > 0 && (
                                             <>
                                                 <span>·</span>
-                                                <span>{formatTimeAgo(tokenInfo.createdTime)}</span>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="cursor-default">
+                                                            {formatTimeAgo(tokenInfo.createdTime)}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {formatFullDate(tokenInfo.createdTime)}
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             </>
                                         )}
                                     </div>

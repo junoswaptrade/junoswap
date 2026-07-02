@@ -6,7 +6,8 @@ import { formatEther } from 'viem'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useAllSwapEvents } from '@/hooks/useAllSwapEvents'
 import { formatTokenAmount, formatCompact } from '@/services/launchpad'
-import { formatAddress, cn, formatTimeAgo } from '@/lib/utils'
+import { formatAddress, cn, formatTimeAgo, formatFullDate } from '@/lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { getExplorerAddressUrl } from '@/lib/explorer'
 import type { EnrichedSwapEvent } from '@/types/launchpad'
@@ -51,7 +52,14 @@ function TradeChip({ event, chainId }: { event: EnrichedSwapEvent; chainId: numb
             >
                 {formatAddress(event.sender)}
             </span>
-            <span className="text-muted-foreground">{formatTimeAgo(event.timestamp)} </span>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span className="cursor-default text-muted-foreground">
+                        {formatTimeAgo(event.timestamp)}{' '}
+                    </span>
+                </TooltipTrigger>
+                <TooltipContent>{formatFullDate(event.timestamp)}</TooltipContent>
+            </Tooltip>
         </Link>
     )
 }
