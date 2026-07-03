@@ -86,7 +86,7 @@ export function TokenChart({
         null
     )
 
-    const { data, isLoading, timeframe, setTimeframe, chartMode, setChartMode } =
+    const { data, feeBreakdown, isLoading, timeframe, setTimeframe, chartMode, setChartMode } =
         useTokenPriceHistory(tokenAddr, isGraduated, graduatedAt)
 
     // Read V3 pool slot0 for live price when graduated
@@ -458,10 +458,10 @@ export function TokenChart({
 
         const metrics = computeDailyMetrics(displayData, nativeUsdPrice)
         setVol1d(metrics?.volume1d ?? null)
-        onDailyMetricsChange?.(metrics)
+        onDailyMetricsChange?.(metrics ? { ...metrics, feeBreakdown } : null)
 
         chartRef.current?.timeScale().fitContent()
-    }, [displayData, chartMode, nativeUsdPrice, chartColors, onDailyMetricsChange])
+    }, [displayData, chartMode, nativeUsdPrice, chartColors, onDailyMetricsChange, feeBreakdown])
 
     return (
         <div className={cn('relative rounded-lg border border-border/60 bg-card', className)}>

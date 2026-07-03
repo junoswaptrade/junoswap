@@ -5,6 +5,7 @@ import type { Address } from 'viem'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
+import type { DailyMetrics } from '@/services/chart'
 import { useTokenList } from '@/hooks/useTokenList'
 import { useGraduatedPoolAddress } from '@/hooks/useGraduatedPoolAddress'
 import { formatAddress, formatTimeAgo, formatFullDate } from '@/lib/utils'
@@ -75,6 +76,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
     const decimals = 18 // Launch tokens always use 18 decimals
     const [copied, setCopied] = useState(false)
     const [shareOpen, setShareOpen] = useState(false)
+    const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics | null>(null)
 
     const copyAddress = () => {
         navigator.clipboard.writeText(tokenAddr)
@@ -183,11 +185,13 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
 
                     <TokenStats
                         marketCap={marketCap}
+                        symbol={symbol}
                         isGraduated={isGraduated}
                         athMarketCap={athMarketCap}
                         priceChange1dPct={
                             snapshotMap.get(tokenAddr.toLowerCase())?.priceChange1dPct ?? null
                         }
+                        feeBreakdown={dailyMetrics?.feeBreakdown ?? null}
                     />
 
                     <TokenChartWrapper
@@ -198,6 +202,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                         isGraduated={isGraduated}
                         poolAddress={poolAddress}
                         graduatedAt={tokenInfo?.graduatedAt ?? null}
+                        onDailyMetricsChange={setDailyMetrics}
                     />
 
                     {(tokenInfo?.description ||

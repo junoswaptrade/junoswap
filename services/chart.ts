@@ -1,12 +1,13 @@
 import { formatEther } from 'viem'
 import type { Timeframe, ChartMode, CandlestickData } from '@/types/chart'
 import { TIMEFRAME_DURATIONS } from '@/types/chart'
+import { PUMP_FEE_BPS } from '@/services/launchpad'
 
 const TOTAL_SUPPLY = 1_000_000_000 // 1 billion tokens
 const VIRTUAL_AMOUNT = 3400n * 10n ** 18n
 const Q96 = 2n ** 96n
 
-interface SwapEvent {
+export interface SwapEvent {
     timestamp: number
     isBuy: boolean
     amountIn: bigint
@@ -403,9 +404,44 @@ export function stitchCandlesticks(
     return [...preGrad, ...postGrad]
 }
 
+export interface FeeBreakdown {
+    nativeFees: number // KUB collected from buy-side fees
+    tokenFees: number // launch tokens collected from sell-side fees
+    totalNative: number // KUB-denominated combined total (sell fees valued at the KUB received)
+}
+
+/**
+ * Launchpad fee revenue, per asset. Only the bonding curve earns the launchpad
+ * this fee — post-graduation V3 pool fees accrue to the pool's LPs, not the
+ * launchpad — so this sums bonding-curve events only. The 1% fee is taken on
+ * the input side: buys pay in native, sells pay in the launch token. totalNative
+ * combines both in KUB terms, valuing a sell's fee at 1% of the KUB the seller
+ * received (an approximation, since the fee is actually taken token-side).
+ */
+export function computeFeeBreakdown(events: SwapEvent[]): FeeBreakdown {
+    const feeRate = Number(PUMP_FEE_BPS) / 10000
+    let nativeFees = 0
+    let tokenFees = 0
+    let totalNative = 0
+
+    for (const e of events) {
+        const amountIn = parseFloat(formatEther(e.amountIn))
+        if (e.isBuy) {
+            nativeFees += amountIn * feeRate
+            totalNative += amountIn * feeRate
+        } else {
+            tokenFees += amountIn * feeRate
+            totalNative += parseFloat(formatEther(e.amountOut)) * feeRate
+        }
+    }
+
+    return { nativeFees, tokenFees, totalNative }
+}
+
 export interface DailyMetrics {
     volume1d: number
     priceChange1dPct: number
+    feeBreakdown?: FeeBreakdown
 }
 
 export function computeDailyMetrics(

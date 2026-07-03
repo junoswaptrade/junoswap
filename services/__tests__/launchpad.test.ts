@@ -133,16 +133,16 @@ describe('formatCompact', () => {
         expect(formatCompact(42)).toBe('42')
     })
 
-    it('uses K suffix', () => {
-        expect(formatCompact(1500)).toBe('2K')
+    it('uses K suffix with one decimal', () => {
+        expect(formatCompact(1500)).toBe('1.5K')
     })
 
-    it('uses M suffix', () => {
-        expect(formatCompact(1500000)).toBe('2M')
+    it('uses M suffix with one decimal', () => {
+        expect(formatCompact(1500000)).toBe('1.5M')
     })
 
-    it('uses B suffix', () => {
-        expect(formatCompact(1500000000)).toBe('2B')
+    it('uses B suffix with one decimal', () => {
+        expect(formatCompact(1500000000)).toBe('1.5B')
     })
 })
 

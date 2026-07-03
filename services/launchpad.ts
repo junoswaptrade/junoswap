@@ -2,7 +2,7 @@ import { formatEther, decodeEventLog } from 'viem'
 import type { Address, Log } from 'viem'
 import { BONDING_CURVE_JUNOSWAP_ABI } from '@/lib/abis/bonding-curve-junoswap'
 
-const PUMP_FEE_BPS = 100n // 1%
+export const PUMP_FEE_BPS = 100n // 1%
 
 /** Initial token supply: 1 billion with 18 decimals */
 export const INITIAL_TOKEN_SUPPLY = 1000000000n * 10n ** 18n
@@ -111,9 +111,9 @@ export function formatCompact(num: number): string {
     if (num < 0.01) return '<0.01'
     if (num < 1) return num.toFixed(2)
     if (num < 1000) return num.toFixed(0)
-    if (num < 1000000) return `${(num / 1000).toFixed(0)}K`
-    if (num < 1000000000) return `${(num / 1000000).toFixed(0)}M`
-    return `${(num / 1000000000).toFixed(0)}B`
+    if (num < 1000000) return `${(num / 1000).toFixed(1)}K`
+    if (num < 1000000000) return `${(num / 1000000).toFixed(1)}M`
+    return `${(num / 1000000000).toFixed(1)}B`
 }
 
 /**

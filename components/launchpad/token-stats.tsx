@@ -2,20 +2,26 @@
 
 import { cn } from '@/lib/utils'
 import { formatCompact } from '@/services/launchpad'
+import type { FeeBreakdown } from '@/services/chart'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
 
 interface TokenStatsProps {
     marketCap: string
+    symbol?: string
     isGraduated?: boolean
     athMarketCap?: string
     priceChange1dPct?: number | null
+    feeBreakdown?: FeeBreakdown | null
     className?: string
 }
 
 export function TokenStats({
     marketCap,
+    symbol,
     athMarketCap,
     priceChange1dPct,
+    feeBreakdown,
     className,
 }: TokenStatsProps) {
     const { nativeUsdPrice } = useNativeUsdPriceContext()
@@ -46,7 +52,37 @@ export function TokenStats({
                         </span>
                     )}
                 </div>
-                <div className="text-xs text-muted-foreground uppercase">mcap</div>
+                <div className="text-xs text-muted-foreground uppercase">
+                    mcap
+                    {feeBreakdown != null && feeBreakdown.totalNative > 0 && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="text-muted-foreground/60 tabular-nums">
+                                    {' · revenue '}
+                                    {nativeUsdPrice !== null
+                                        ? `$${formatCompact(feeBreakdown.totalNative * nativeUsdPrice)}`
+                                        : `${formatCompact(feeBreakdown.totalNative)} KUB`}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="normal-case">
+                                <div className="font-medium">Lifetime trading fee revenue (1%)</div>
+                                <div className="mt-1 space-y-0.5 text-muted-foreground tabular-nums">
+                                    {feeBreakdown.nativeFees > 0 && (
+                                        <div>
+                                            {formatCompact(feeBreakdown.nativeFees)} KUB from buys
+                                        </div>
+                                    )}
+                                    {feeBreakdown.tokenFees > 0 && (
+                                        <div>
+                                            {formatCompact(feeBreakdown.tokenFees)}{' '}
+                                            {symbol ?? 'tokens'} from sells
+                                        </div>
+                                    )}
+                                </div>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
             </div>
 
             {athNum > 0 ? (

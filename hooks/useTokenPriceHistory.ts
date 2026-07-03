@@ -9,6 +9,7 @@ import { ponderRequest } from '@/lib/ponder-client'
 import {
     aggregateCandlesticks,
     aggregateV3Candlesticks,
+    computeFeeBreakdown,
     stitchCandlesticks,
 } from '@/services/chart'
 import type { V3SwapEvent } from '@/services/chart'
@@ -201,8 +202,12 @@ export function useTokenPriceHistory(
         return bcCandles
     }, [rawEvents, rawV3Events, timeframe, chartMode, isGraduated, tokenIsToken0, graduatedAt])
 
+    // Bonding-curve fees only — post-graduation V3 pool fees go to LPs, not the launchpad.
+    const feeBreakdown = useMemo(() => computeFeeBreakdown(rawEvents ?? []), [rawEvents])
+
     return {
         data,
+        feeBreakdown,
         isLoading: isLoadingBc || (isGraduated && isLoadingV3),
         timeframe,
         setTimeframe,

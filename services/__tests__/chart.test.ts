@@ -4,6 +4,8 @@ import {
     aggregatePricePoints,
     aggregateV3Candlesticks,
     buildContinuousSeries,
+    computeDailyMetrics,
+    computeFeeBreakdown,
     sanitizeCandles,
     tokenNativeCandles,
     ratioCandles,
@@ -313,6 +315,55 @@ describe('tokenNativeCandles', () => {
         expect(at18[at18.length - 1]!.close).toBeCloseTo(1, 6)
         expect(at6[at6.length - 1]!.close).toBeGreaterThan(1e-13)
         expect(at6[at6.length - 1]!.close).toBeLessThan(1e-11)
+    })
+})
+
+describe('computeFeeBreakdown', () => {
+    it('returns zeros for no events', () => {
+        expect(computeFeeBreakdown([])).toEqual({ nativeFees: 0, tokenFees: 0, totalNative: 0 })
+    })
+
+    it('attributes buy fees to native, sell fees to tokens, and combines both in KUB', () => {
+        const events = [
+            // buy: 100 KUB in
+            makeEvent(100, true, NATIVE(100), TOKENS(1000), NATIVE(200), TOKENS(800)),
+            // sell: 500 tokens in for 40 KUB out
+            makeEvent(200, false, TOKENS(500), NATIVE(40), TOKENS(1300), NATIVE(160)),
+        ]
+        const { nativeFees, tokenFees, totalNative } = computeFeeBreakdown(events)
+        expect(nativeFees).toBeCloseTo(1, 10) // 1% of 100 KUB
+        expect(tokenFees).toBeCloseTo(5, 10) // 1% of 500 tokens
+        // 1% of (100 KUB buy in + 40 KUB sell out)
+        expect(totalNative).toBeCloseTo(1.4, 10)
+    })
+})
+
+describe('computeDailyMetrics', () => {
+    const c = (time: number, close: number, volume: number): CandlestickData => ({
+        time,
+        open: close,
+        high: close,
+        low: close,
+        close,
+        volume,
+    })
+
+    it('returns null for empty candles', () => {
+        expect(computeDailyMetrics([], null)).toBeNull()
+    })
+
+    it('sums volume1d over the last 24h only', () => {
+        const now = Math.floor(Date.now() / 1000)
+        const candles = [c(now - 200_000, 1, 300), c(now - 100, 2, 50)]
+        const metrics = computeDailyMetrics(candles, null)!
+        expect(metrics.volume1d).toBe(50)
+    })
+
+    it('converts volume1d to USD when a native price is given', () => {
+        const now = Math.floor(Date.now() / 1000)
+        const candles = [c(now - 200_000, 1, 300), c(now - 100, 2, 50)]
+        const metrics = computeDailyMetrics(candles, 2)!
+        expect(metrics.volume1d).toBe(100)
     })
 })
 
