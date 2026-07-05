@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ponder } from 'ponder:registry'
 import schema from 'ponder:schema'
 import { readERC20Metadata } from './erc20-read.js'
@@ -9,11 +10,6 @@ const WRAPPED_NATIVE = '0x700d3ba307e1256e509ed3e45d6f9dff441d6907'
 const GRADUATED_FEE_TIER = 10000
 const SECONDS_PER_DAY = 86400
 
-// Human price of the token indicated by `tokenIsToken0`, denominated in the paired
-// token. sqrtPriceX96 encodes the ratio in RAW (smallest-unit) terms, so the human
-// price differs by 10^(tokenDecimals - pairedDecimals); without that adjustment a
-// token whose decimals differ from its pair (e.g. 6-decimal USDT vs 18-decimal
-// native) is mispriced by exactly that factor.
 function computePriceFromSqrtPriceX96(
     sqrtPriceX96: bigint,
     tokenIsToken0: boolean,
@@ -37,7 +33,6 @@ function computePriceFromSqrtPriceX96(
 }
 
 export async function upsertToken(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
     address: string,
@@ -47,9 +42,6 @@ export async function upsertToken(
     const existing = await context.db.find(schema.v3Token, { id })
     if (existing) return
 
-    // Use standalone viem client — Ponder's context.client forces historical block numbers,
-    // which fail on non-archive nodes (bitkub, kubTestnet). Token metadata is immutable,
-    // so reading at latest block is always safe.
     const meta = await readERC20Metadata(chainId, address)
 
     await context.db
@@ -70,9 +62,7 @@ function getDayTimestamp(timestamp: number): number {
     return Math.floor(timestamp / SECONDS_PER_DAY) * SECONDS_PER_DAY
 }
 
-// Shared volume aggregation logic — context type inferred by each inline handler
 async function upsertPoolDayVolume(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
     poolAddress: string,
@@ -113,7 +103,6 @@ async function upsertPoolDayVolume(
 }
 
 async function updateNativeUsdPrice(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
     poolAddress: string,
@@ -141,8 +130,6 @@ async function updateNativeUsdPrice(
 
     if (!isNativeStablePool) return
 
-    // Native is priced against the stable; adjust for the stable's decimals (native
-    // is always 18 on these chains). Lets a 6-decimal stable pool yield a correct rate.
     const stableAddr = nativeIsToken0 ? token1 : token0
     const stableToken = await context.db.find(schema.v3Token, { id: `${chainId}-${stableAddr}` })
     const stableDecimals = stableToken?.decimals ?? 18
@@ -162,7 +149,6 @@ async function updateNativeUsdPrice(
             updatedAt: timestamp,
         })
 
-    // Append a historical point so past trades can be valued at their own rate.
     await context.db
         .insert(schema.nativeUsdPriceSnapshot)
         .values({
@@ -176,7 +162,6 @@ async function updateNativeUsdPrice(
 }
 
 async function updateV3TokenSnapshot(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
     poolAddress: string,
@@ -201,9 +186,6 @@ async function updateV3TokenSnapshot(
 
     if (!tokenAddr) return
 
-    // Token is priced against wrapped native (always 18 decimals here); adjust for the
-    // token's own decimals so non-18-decimal tokens (e.g. 6-decimal USDT) aren't off
-    // by 10^(18 - tokenDecimals).
     const tokenRecord = await context.db.find(schema.v3Token, { id: `${chainId}-${tokenAddr}` })
     const tokenDecimals = tokenRecord?.decimals ?? 18
     const priceNative = computePriceFromSqrtPriceX96(sqrtPriceX96, tokenIsToken0, tokenDecimals, 18)
@@ -232,24 +214,14 @@ async function updateV3TokenSnapshot(
         })
 }
 
-// Inserts a v3_swap_event row for a swap on any chain. The token side is
-// resolved against the per-chain wrapped native; the row id is namespaced by
-// chainId so block numbers (which are per-chain) can't collide across chains.
 export async function recordV3SwapEvent(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     event: any,
     poolRecord: { token0: string; token1: string },
     poolAddress: string,
     timestamp: number,
-    // Junoswap/launchpad pools require a native leg (default true) — token/token
-    // pools are skipped to protect the native-denominated PnL model. External
-    // (kublerx) pools pass false to record token/token swaps for the activity feed.
     requireNative = true,
-    // Liquidity source for the activity feed (dexId). Junoswap's own V3 pools keep
-    // the default; the external kublerx handler passes 'kublerx'.
     protocol = 'junoswap'
 ) {
     const { sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick } = event.args
@@ -265,14 +237,8 @@ export async function recordV3SwapEvent(
         tokenAddr = token1
         tokenIsToken0 = false
     } else if (requireNative) {
-        // Token/token pool: no native side to value the swap against. Recording it
-        // would mis-read the paired token's amount as KUB and blow up PnL, so the
-        // native-denominated model skips it.
         return
     } else {
-        // External pools rendered via the generalized two-leg activity display, which
-        // uses token0Addr/token1Addr + amounts (not the native model). tokenAddr is a
-        // best-effort default.
         tokenAddr = token0
         tokenIsToken0 = true
     }
@@ -317,11 +283,10 @@ export async function recordV3SwapEvent(
                 boundAtTimestamp: Number(event.block.timestamp),
                 chainId,
             })
-            .onConflictDoNothing() // first-touch wins
+            .onConflictDoNothing()
     }
 }
 
-// kubTestnet (25925)
 ponder.on('V3Factory:PoolCreated', async ({ event, context }) => {
     const { token0, token1, fee, tickSpacing, pool } = event.args
     const address = pool.toLowerCase()
@@ -358,14 +323,11 @@ ponder.on('V3Pool:Swap', async ({ event, context }) => {
     const absAmount0 = amount0 < 0n ? -amount0 : amount0
     const absAmount1 = amount1 < 0n ? -amount1 : amount1
 
-    // 1. Daily volume aggregation
     await upsertPoolDayVolume(context, 25925, poolAddress, timestamp, absAmount0, absAmount1)
 
-    // 2. Get pool record (needed for all subsequent logic)
     const poolRecord = await context.db.find(schema.v3Pool, { id: `25925-${poolAddress}` })
     if (!poolRecord) return
 
-    // 3. Update native USD price if this is a native/stablecoin pool
     await updateNativeUsdPrice(
         context,
         25925,
@@ -377,15 +339,12 @@ ponder.on('V3Pool:Swap', async ({ event, context }) => {
         event.log.logIndex
     )
 
-    // 4. Update v3_token_snapshot for pools containing wrapped native
     await updateV3TokenSnapshot(context, 25925, poolAddress, poolRecord, sqrtPriceX96, timestamp)
 
-    // 5. Insert v3_swap_event for all swaps
     await recordV3SwapEvent(context, 25925, event, poolRecord, poolAddress, timestamp)
 
     const { token0, token1 } = poolRecord
 
-    // 7. Graduated launch token tracking (token_snapshot updates only for fee=10000 graduated tokens)
     if (poolRecord.fee !== GRADUATED_FEE_TIER) return
 
     let launchTokenAddr: string | null = null
@@ -407,8 +366,6 @@ ponder.on('V3Pool:Swap', async ({ event, context }) => {
 
     if (!launchTokenAddr) return
 
-    // Compute price and update token_snapshot. Launch tokens are always 18 decimals
-    // and paired with 18-decimal native, so no decimal adjustment is needed.
     const priceNative = computePriceFromSqrtPriceX96(sqrtPriceX96, launchTokenIsToken0, 18, 18)
     const marketCap = priceNative * 1_000_000_000
 
@@ -430,12 +387,10 @@ ponder.on('V3Pool:Swap', async ({ event, context }) => {
         parseFloat(existingSnapshot.athMarketCapNative ?? '0')
     ).toString()
 
-    // Compute 24h price change
     let price1dAgo: string | null = existingSnapshot.price1dAgo ?? null
     let price1dAgoTimestamp: number | null = existingSnapshot.price1dAgoTimestamp ?? null
     let priceChange1dPct: string | null = existingSnapshot.priceChange1dPct ?? null
 
-    // At the first swap of each new UTC day, capture the reference price
     const currentDayStart = Math.floor(timestamp / 86400) * 86400
     const refDayStart = existingSnapshot.price1dAgoTimestamp
         ? Math.floor(existingSnapshot.price1dAgoTimestamp / 86400) * 86400
@@ -473,7 +428,6 @@ ponder.on('V3Pool:Swap', async ({ event, context }) => {
     })
 })
 
-// bitkub mainnet (96)
 ponder.on('V3FactoryBitkub:PoolCreated', async ({ event, context }) => {
     const { token0, token1, fee, tickSpacing, pool } = event.args
     const address = pool.toLowerCase()
@@ -530,7 +484,6 @@ ponder.on('V3PoolBitkub:Swap', async ({ event, context }) => {
     await recordV3SwapEvent(context, 96, event, poolRecord, poolAddress, timestamp)
 })
 
-// JBC (8899)
 ponder.on('V3FactoryJbc:PoolCreated', async ({ event, context }) => {
     const { token0, token1, fee, tickSpacing, pool } = event.args
     const address = pool.toLowerCase()

@@ -1,10 +1,5 @@
 import externalPools from '../external-pools.json'
 
-// Lazy-seed lookup for pre-existing external pools. Their metadata is NOT discovered
-// via a historical PairCreated/PoolCreated scan (too heavy); instead the swap handlers
-// read token0/token1 (+ fee/tickSpacing for V3) from external-pools.json the first
-// time a tagged swap on the pool is seen, and insert the pool row on the fly.
-
 interface V2Entry {
     pair: string
     token0: string
@@ -18,7 +13,6 @@ interface V3Entry {
     tickSpacing: number
 }
 
-// Which chain each external V2 DEX lives on (kublerx V3 is bitkub-only).
 const V2_DEX_CHAIN: Record<string, number> = {
     jibswap: 8899,
     udonswap: 96,
@@ -30,8 +24,6 @@ const v2Pools = new Map<string, { token0: string; token1: string; dex: string }>
 for (const [dex, chainId] of Object.entries(V2_DEX_CHAIN)) {
     for (const e of (externalPools as unknown as Record<string, V2Entry[]>)[dex] ?? []) {
         const key = `${chainId}-${e.pair.toLowerCase()}`
-        // A pool address must belong to exactly one DEX; an overlap would make the
-        // swap's protocol label ambiguous (see getSeedV2Dex), so fail loudly at startup.
         const prior = v2Pools.get(key)
         if (prior && prior.dex !== dex) {
             throw new Error(

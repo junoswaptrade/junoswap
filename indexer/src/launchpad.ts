@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ponder } from 'ponder:registry'
 import schema from 'ponder:schema'
 import { formatEther, zeroAddress } from 'viem'
@@ -7,14 +8,8 @@ import {
     BONDING_CURVE_JUNOSWAP_BITKUB_ADDRESS,
 } from '../abis/bonding-curve-junoswap'
 
-// Mainnet (chain 96) handlers are only wired up once the contract is deployed and
-// its address filled in; until then ponder.config omits the Bitkub contracts, so
-// registering their handlers would error. Keep this flag in sync with that config.
 const MAINNET_ENABLED = BONDING_CURVE_JUNOSWAP_BITKUB_ADDRESS.toLowerCase() !== zeroAddress
 
-// Ponder's event/context types are deep generics; the other indexer handlers
-// (v2-pools/v3-pools) use the same loose typing for shared helper functions.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type HandlerArgs = { event: any; context: any }
 
 const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n
@@ -47,7 +42,6 @@ function calculateVolume(isBuy: boolean, amountIn: bigint, amountOut: bigint): b
     return isBuy ? amountIn : amountOut
 }
 
-// Default snapshot values (used when creating a new snapshot)
 function defaultSnapshot(tokenAddr: string, chainId: number) {
     return {
         tokenAddr,
@@ -72,7 +66,6 @@ async function handleCreation({ event, context }: HandlerArgs, chainId: number) 
     const { creator, tokenAddr, logo, description, link1, link2, link3, createdTime } = event.args
     const tokenAddrLower = tokenAddr.toLowerCase()
 
-    // Use standalone viem client — Ponder's context.client forces historical block numbers
     const meta = await readERC20Metadata(chainId, tokenAddrLower)
 
     await context.db
@@ -100,12 +93,9 @@ async function handleSwap({ event, context }: HandlerArgs, chainId: number) {
     const { sender, isBuy, tokenAddr, amountIn, amountOut, reserveIn, reserveOut } = event.args
     const tokenAddrLower = tokenAddr.toLowerCase()
     const senderLower = sender.toLowerCase()
-    // Prefix ids with chainId — block numbers/log indices are per-chain and would
-    // otherwise collide across testnet and mainnet in the shared tables.
     const id = `${chainId}-${event.block.number}-${event.log.logIndex}`
     const timestamp = Number(event.block.timestamp)
 
-    // 1. Insert swap event
     await context.db.insert(schema.swapEvent).values({
         id,
         chainId,
@@ -125,12 +115,10 @@ async function handleSwap({ event, context }: HandlerArgs, chainId: number) {
     const marketCap = calculateMarketCapFromReserves(isBuy, BigInt(reserveIn), BigInt(reserveOut))
     const volume = calculateVolume(isBuy, amountIn, amountOut)
 
-    // 2. Read native USD price for USD conversion
     const nativePriceRecord = await context.db.find(schema.nativeUsdPrice, { chainId })
     const nativeUsd = nativePriceRecord ? parseFloat(nativePriceRecord.price) : 0
     const priceUsd = nativeUsd > 0 && price > 0 ? price * nativeUsd : 0
 
-    // 3. Read current snapshot (from previous events), or use defaults
     const existingSnapshot = await context.db.find(schema.tokenSnapshot, {
         tokenAddr: tokenAddrLower,
     })
@@ -142,22 +130,18 @@ async function handleSwap({ event, context }: HandlerArgs, chainId: number) {
         parseFloat(snap.athMarketCapNative ?? '0')
     ).toString()
 
-    // 4. Read current holder state
     const holderId = `${chainId}-${tokenAddrLower}-${senderLower}`
     const existingHolder = await context.db.find(schema.tokenHolder, { id: holderId })
     const oldBalance = existingHolder ? BigInt(existingHolder.balance) : 0n
     const isNewHolder = !existingHolder
 
-    // 5. Compute new values
     const balanceChange = isBuy ? amountOut : -amountIn
     const newBalance = oldBalance + balanceChange
 
-    // 5b. Compute 24h price change
     let price1dAgo: string | null = snap.price1dAgo ?? null
     let price1dAgoTimestamp: number | null = snap.price1dAgoTimestamp ?? null
     let priceChange1dPct: string | null = snap.priceChange1dPct ?? null
 
-    // At the first swap of each new UTC day, capture the reference price
     const currentDayStart = Math.floor(timestamp / 86400) * 86400
     const refDayStart = snap.price1dAgoTimestamp
         ? Math.floor(snap.price1dAgoTimestamp / 86400) * 86400
@@ -183,7 +167,6 @@ async function handleSwap({ event, context }: HandlerArgs, chainId: number) {
     if (!oldPositive && newPositive) holderCount += 1
     if (oldPositive && !newPositive) holderCount = Math.max(0, holderCount - 1)
 
-    // 6. Write all updates
     if (isNewSnapshot) {
         await context.db
             .insert(schema.tokenSnapshot)
@@ -244,20 +227,12 @@ async function handleSwap({ event, context }: HandlerArgs, chainId: number) {
 async function handleGraduation({ event, context }: HandlerArgs) {
     const { tokenAddr } = event.args
 
-    // tokenAddr is the primary key (globally unique across chains), so no chainId
-    // is needed to locate the row.
     await context.db.update(schema.launchToken, { tokenAddr: tokenAddr.toLowerCase() }).set({
         isGraduated: 1,
         graduatedAt: Number(event.block.timestamp),
     })
 }
 
-// Launch-token ERC20 transfers. Feeds the Portfolio activity feed's transfer rows
-// AND maintains tokenHolder balances for genuine token movements — P2P transfers and
-// post-graduation V3-pool trades (the pool emits LaunchToken transfers pool↔trader).
-// We exclude mints/burns (the zero address) and bonding-curve swap legs (counterparty
-// is BondingCurveJunoswap): those are already captured as swapEvent and their tokenHolder
-// balances are maintained by handleSwap, so recording them here would double-count.
 async function handleTransfer({ event, context }: HandlerArgs, chainId: number) {
     const { from, to, amount } = event.args
     const fromLower = from.toLowerCase()
@@ -283,9 +258,6 @@ async function handleTransfer({ event, context }: HandlerArgs, chainId: number) 
         })
         .onConflictDoNothing()
 
-    // Apply the balance delta to each side and adjust holderCount on a zero crossing,
-    // mirroring handleSwap. The snapshot is guaranteed to exist here: a non-curve transfer
-    // can only happen after a buy (which creates it), so we never need to create one.
     const amt = BigInt(amount)
     const fromNew = await applyHolderDelta(context, chainId, tokenAddrLower, fromLower, -amt)
     const toNew = await applyHolderDelta(context, chainId, tokenAddrLower, toLower, amt)
@@ -303,10 +275,7 @@ async function handleTransfer({ event, context }: HandlerArgs, chainId: number) 
     }
 }
 
-// Upserts a tokenHolder balance by `delta` and reports whether the balance crossed zero,
-// so the caller can keep holderCount in step.
 async function applyHolderDelta(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any,
     chainId: number,
     tokenAddr: string,
@@ -333,20 +302,12 @@ async function applyHolderDelta(
     }
 }
 
-// kub testnet (chain 25925)
 ponder.on('BondingCurveJunoswap:Creation', (args) => handleCreation(args, 25925))
 ponder.on('BondingCurveJunoswap:Swap', (args) => handleSwap(args, 25925))
 ponder.on('BondingCurveJunoswap:Graduation', (args) => handleGraduation(args))
 ponder.on('LaunchToken:Transfer', (args) => handleTransfer(args, 25925))
 
-// kub mainnet (chain 96) — only registered once the contract is deployed (see
-// MAINNET_ENABLED). The Bitkub contracts must be present in ponder.config for these
-// registrations to resolve.
 if (MAINNET_ENABLED) {
-    // The Bitkub contracts are conditionally present in ponder.config (gated on the
-    // same flag), so they aren't in the static config type — cast the event names to
-    // their testnet counterparts to satisfy ponder.on's EventNames union. At runtime
-    // the real string resolves against the registered Bitkub contracts.
     ponder.on('BondingCurveJunoswapBitkub:Creation' as 'BondingCurveJunoswap:Creation', (args) =>
         handleCreation(args, 96)
     )

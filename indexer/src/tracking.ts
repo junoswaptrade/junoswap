@@ -1,15 +1,6 @@
-// Mirror of lib/swap-tracking.ts on the frontend. The frontend appends
-// `MARKER + referrer` (4 + 20 bytes) to the tail of a non-Junoswap swap's
-// calldata; standard router ABIs ignore trailing bytes, so we recover the tag
-// here from the raw transaction input.
-//
-// The suffix carries two distinct facts, returned separately:
-//   - marker presence  => the swap came through our frontend (viaFrontend)
-//   - referrer address  => optional ?ref= attribution (null when the appended
-//                          address was zero, i.e. no referral link was used)
-const MARKER = '6a756e6f' // ASCII "juno"
+const MARKER = '6a756e6f'
 const ZERO = '0x0000000000000000000000000000000000000000'
-const SUFFIX_HEX_LEN = 48 // (4-byte marker + 20-byte address) * 2
+const SUFFIX_HEX_LEN = 48
 
 export function parseTrackingTag(
     input: string | undefined | null
@@ -23,9 +14,6 @@ export function parseTrackingTag(
     return { referrer: referrer === ZERO ? null : referrer }
 }
 
-// First-touch eligibility for a referral binding: requires a real referrer tag that
-// isn't a self-referral. Returns the lowercased referee/referrer pair, or null when the
-// swap shouldn't bind (no referrer, or referrer == swapper).
 export function resolveBinding(
     referee: string,
     referrer: string | null

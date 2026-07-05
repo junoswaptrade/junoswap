@@ -1,6 +1,3 @@
-// Per-chain wrapped native + stablecoin addresses, shared by the V2 and V3 swap
-// handlers. The token side of a swap is resolved against wrapped native; without a
-// native side we can't value the trade (see recordV3SwapEvent for the rationale).
 export const WRAPPED_NATIVE_ADDRESSES: Record<number, string> = {
     25925: '0x700d3ba307e1256e509ed3e45d6f9dff441d6907',
     96: '0x67ebd850304c70d983b2d1b93ea79c7cd6c3f6b5',

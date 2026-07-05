@@ -1,16 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ponder } from 'ponder:registry'
 import schema from 'ponder:schema'
 import { upsertToken, recordV3SwapEvent } from './v3-pools.js'
 import { parseTrackingTag } from './tracking.js'
 import { getSeedV3Pool } from './seed.js'
 
-// External (non-Junoswap) Uniswap-V3-style pools on chains the indexer already
-// runs. These are tracked purely for swap attribution (the calldata referrer tag):
-// we record pool metadata + swap events, but deliberately skip the native-USD-price
-// and v3_token_snapshot updates, which are reserved for Junoswap/launchpad pools and
-// would otherwise corrupt launchpad pricing if an external pool overwrote them.
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function recordExternalV3Pool(context: any, chainId: number, event: any) {
     const { token0, token1, fee, tickSpacing, pool } = event.args
     const address = pool.toLowerCase()
@@ -40,9 +34,6 @@ async function recordExternalV3Pool(context: any, chainId: number, event: any) {
         .onConflictDoNothing()
 }
 
-// Lazily insert a pre-existing kublerx pool from external-pools.json (no historical
-// PoolCreated scan), mirroring getOrSeedV2Pool.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getOrSeedKublerxPool(context: any, poolAddress: string, event: any) {
     const id = `96-${poolAddress}`
     const existing = await context.db.find(schema.v3Pool, { id })
@@ -72,11 +63,6 @@ async function getOrSeedKublerxPool(context: any, poolAddress: string, event: an
     return s
 }
 
-// Only record kublerx swaps that came through our frontend (carry the juno marker).
-// The guard lives here, not in recordV3SwapEvent, because Junoswap's own pool
-// handlers share that function and must record every swap. requireNative=false so
-// token/token kublerx swaps are recorded for the activity feed.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function recordKublerxSwap(context: any, event: any) {
     if (!parseTrackingTag(event.transaction.input)) return
     const poolAddress = event.log.address.toLowerCase()
@@ -94,11 +80,9 @@ async function recordKublerxSwap(context: any, event: any) {
     )
 }
 
-// kublerx (bitkub, 96)
 ponder.on('KublerxV3Factory:PoolCreated', async ({ event, context }) => {
     await recordExternalV3Pool(context, 96, event)
 })
-// Existing pools (seeded) + pools created after rollout (factory-discovered).
 ponder.on('KublerxV3PoolSeeded:Swap', async ({ event, context }) => {
     await recordKublerxSwap(context, event)
 })
