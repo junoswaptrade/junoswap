@@ -43,8 +43,6 @@ bun run build    # Build for production
 bun run start    # Start production server
 ```
 
-For tech stack, project structure, architecture, and code reference — see [architecture.md](./architecture.md).
-
 ---
 
 ## Community
