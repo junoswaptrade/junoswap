@@ -12,8 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
 import { useBondingCurveBuy } from '@/hooks/useBondingCurveBuy'
 import { useBondingCurveSell } from '@/hooks/useBondingCurveSell'
-import { useV3PoolBuy } from '@/hooks/useV3PoolBuy'
-import { useV3PoolSell } from '@/hooks/useV3PoolSell'
+import { useUniV3SwapExecution } from '@/hooks/useUniV3SwapExecution'
+import { useUniV3Quote } from '@/hooks/useUniV3Quote'
 import { useGraduate } from '@/hooks/useGraduate'
 import { useTokenApproval } from '@/hooks/useTokenApproval'
 import { ERC20_ABI } from '@/lib/abis/erc20'
@@ -26,8 +26,10 @@ import { getChainMetadata } from '@/lib/wagmi'
 import { ConnectModal } from '@/components/web3/connect-modal'
 import { SettingsDialog } from '@/components/swap/settings-dialog'
 import { useSwapStore } from '@/store/swap-store'
-import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
-import { getV3Config } from '@/lib/dex-config'
+import { getV3Config, getDefaultDexForChain } from '@/lib/dex-config'
+import { calculateMinOutput } from '@/services/dex/uniswap-v3'
+import { getDefaultPairTokens } from '@/lib/tokens'
+import type { Token } from '@/types/tokens'
 
 interface TokenTradeCardProps {
     tokenAddr: Address
@@ -94,11 +96,7 @@ export function TokenTradeCard({
 
     const chainId = useLaunchpadChainId()
     const bondingCurveAddress = getBondingCurveAddress(chainId)
-    const wrappedNative = INTERMEDIARY_TOKENS[chainId]?.wrappedNative as Address | undefined
 
-    // The token's chain (chainId) comes from the URL and may differ from the connected
-    // wallet chain. Reads target chainId, but writes (buy/sell/approve) require the wallet
-    // to be on that chain — otherwise prompt a switch instead of firing a doomed tx.
     const walletChainId = useChainId()
     const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
     const wrongChain = isConnected && walletChainId !== chainId
@@ -120,7 +118,6 @@ export function TokenTradeCard({
         isGraduated
     )
 
-    // Graduate hook
     const {
         graduate,
         step: graduateStep,
@@ -137,13 +134,11 @@ export function TokenTradeCard({
         enabled: readyToGraduate,
     })
 
-    // User's native KUB balance
     const { data: nativeBalance, refetch: refetchNative } = useBalance({
         address,
         chainId,
     })
 
-    // User's token balance
     const { data: tokenBalance, refetch: refetchTokens } = useReadContract({
         address: tokenAddr,
         abi: ERC20_ABI,
@@ -153,7 +148,6 @@ export function TokenTradeCard({
         query: { enabled: !!address },
     })
 
-    // Parse amounts
     const buyAmountWei = useMemo(() => {
         if (!buyAmount || !isValidNumberInput(buyAmount)) return 0n
         try {
@@ -172,7 +166,6 @@ export function TokenTradeCard({
         }
     }, [sellAmount, tokenDecimals])
 
-    // Bonding curve buy hook
     const {
         buy: bcBuy,
         canBuy: canBuyBC,
@@ -194,12 +187,48 @@ export function TokenTradeCard({
         enabled: !isGraduated && !readyToGraduate,
     })
 
-    // V3 pool buy hook
+    const slippageBps = Math.round(settings.slippage * 100)
+    const launchpadDex = getDefaultDexForChain(chainId)
+    const nativeToken = useMemo<Token>(() => {
+        const native = getDefaultPairTokens(chainId).nativeTokens[0]
+        if (native) return native
+        const meta = getChainMetadata(chainId)
+        return {
+            address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+            symbol: meta?.symbol ?? 'KUB',
+            name: meta?.name ?? 'Native',
+            decimals: 18,
+            chainId,
+        }
+    }, [chainId])
+    const launchpadToken = useMemo<Token>(
+        () => ({
+            address: tokenAddr,
+            symbol: tokenSymbol,
+            name: '',
+            decimals: tokenDecimals,
+            chainId,
+        }),
+        [tokenAddr, tokenSymbol, tokenDecimals, chainId]
+    )
+
+    const v3BuyEnabled = isGraduated && !!poolAddress
+    const { quote: v3BuyQuote } = useUniV3Quote({
+        tokenIn: nativeToken,
+        tokenOut: launchpadToken,
+        amountIn: buyAmountWei,
+        enabled: v3BuyEnabled && buyAmountWei > 0n,
+        dexId: launchpadDex,
+    })
+    const v3BuyExpectedOut = v3BuyQuote?.amountOut ?? 0n
+    const v3MinTokenOut = useMemo(
+        () => calculateMinOutput(v3BuyExpectedOut, slippageBps),
+        [v3BuyExpectedOut, slippageBps]
+    )
+
     const {
-        buy: v3Buy,
-        canBuy: canBuyV3,
-        expectedOut: v3BuyExpectedOut,
-        minTokenOut: v3MinTokenOut,
+        swap: v3Buy,
+        canSwap: canBuyV3,
         isPreparing: isBuyPreparingV3,
         isExecuting: isBuyExecutingV3,
         isConfirming: isBuyConfirmingV3,
@@ -207,15 +236,19 @@ export function TokenTradeCard({
         isError: isBuyErrorV3,
         error: buyErrorV3,
         hash: buyHashV3,
-    } = useV3PoolBuy({
-        tokenAddr,
-        wrappedNative: wrappedNative!,
-        nativeAmount: buyAmountWei,
-        poolFee: poolFee ?? 10000,
-        enabled: isGraduated && !!poolAddress && !!wrappedNative,
+    } = useUniV3SwapExecution({
+        tokenIn: nativeToken,
+        tokenOut: launchpadToken,
+        amountIn: buyAmountWei,
+        amountOutMinimum: v3MinTokenOut,
+        recipient: address ?? '0x0',
+        slippage: settings.slippage,
+        deadlineMinutes: 20,
+        fee: poolFee ?? 10000,
+        dexId: launchpadDex,
+        skipSimulation: !v3BuyEnabled,
     })
 
-    // Bonding curve sell hook
     const {
         sell: bcSell,
         canSell: canSellBC,
@@ -237,51 +270,19 @@ export function TokenTradeCard({
         enabled: !isGraduated,
     })
 
-    // V3 pool sell hook
-    const {
-        sell: v3Sell,
-        canSell: canSellV3,
-        expectedOut: v3SellExpectedOut,
-        minNativeOut: v3MinNativeOut,
-        isPreparing: isSellPreparingV3,
-        isExecuting: isSellExecutingV3,
-        isConfirming: isSellConfirmingV3,
-        isSuccess: isSellSuccessV3,
-        isError: isSellErrorV3,
-        error: sellErrorV3,
-        hash: sellHashV3,
-    } = useV3PoolSell({
-        tokenAddr,
-        wrappedNative: wrappedNative!,
-        tokenAmount: sellAmountWei,
-        poolFee: poolFee ?? 10000,
-        enabled: isGraduated && !!poolAddress && !!wrappedNative,
+    const { quote: v3SellQuote } = useUniV3Quote({
+        tokenIn: launchpadToken,
+        tokenOut: nativeToken,
+        amountIn: sellAmountWei,
+        enabled: v3BuyEnabled && sellAmountWei > 0n,
+        dexId: launchpadDex,
     })
+    const v3SellExpectedOut = v3SellQuote?.amountOut ?? 0n
+    const v3MinNativeOut = useMemo(
+        () => calculateMinOutput(v3SellExpectedOut, slippageBps),
+        [v3SellExpectedOut, slippageBps]
+    )
 
-    // Resolve active hook values
-    const canBuy = isGraduated ? canBuyV3 : canBuyBC
-    const canSell = isGraduated ? canSellV3 : canSellBC
-    const buyExpectedOut = isGraduated ? v3BuyExpectedOut : bcBuyExpectedOut
-    const minTokenOut = isGraduated ? v3MinTokenOut : bcMinTokenOut
-    const isBuyPreparing = isGraduated ? isBuyPreparingV3 : isBuyPreparingBC
-    const isBuyExecuting = isGraduated ? isBuyExecutingV3 : isBuyExecutingBC
-    const isBuyConfirming = isGraduated ? isBuyConfirmingV3 : isBuyConfirmingBC
-    const isBuySuccess = isGraduated ? isBuySuccessV3 : isBuySuccessBC
-    const isBuyError = isGraduated ? isBuyErrorV3 : isBuyErrorBC
-    const buyError = isGraduated ? buyErrorV3 : buyErrorBC
-    const buyHash = isGraduated ? buyHashV3 : buyHashBC
-
-    const sellExpectedOut = isGraduated ? v3SellExpectedOut : bcSellExpectedOut
-    const minNativeOut = isGraduated ? v3MinNativeOut : bcMinNativeOut
-    const isSellPreparing = isGraduated ? isSellPreparingV3 : isSellPreparingBC
-    const isSellExecuting = isGraduated ? isSellExecutingV3 : isSellExecutingBC
-    const isSellConfirming = isGraduated ? isSellConfirmingV3 : isSellConfirmingBC
-    const isSellSuccess = isGraduated ? isSellSuccessV3 : isSellSuccessBC
-    const isSellError = isGraduated ? isSellErrorV3 : isSellErrorBC
-    const sellError = isGraduated ? sellErrorV3 : sellErrorBC
-    const sellHash = isGraduated ? sellHashV3 : sellHashBC
-
-    // Token approval — target V3 SwapRouter for graduated tokens, BondingCurveJunoswap otherwise
     const v3Config = getV3Config(chainId)
     const sellSpender = isGraduated
         ? (v3Config?.swapRouter ?? bondingCurveAddress)
@@ -305,7 +306,52 @@ export function TokenTradeCard({
         amountToApprove: sellAmountWei,
     })
 
-    // Handle buy success
+    const {
+        swap: v3Sell,
+        canSwap: canSellV3,
+        isPreparing: isSellPreparingV3,
+        isExecuting: isSellExecutingV3,
+        isConfirming: isSellConfirmingV3,
+        isSuccess: isSellSuccessV3,
+        isError: isSellErrorV3,
+        error: sellErrorV3,
+        hash: sellHashV3,
+    } = useUniV3SwapExecution({
+        tokenIn: launchpadToken,
+        tokenOut: nativeToken,
+        amountIn: sellAmountWei,
+        amountOutMinimum: v3MinNativeOut,
+        recipient: address ?? '0x0',
+        slippage: settings.slippage,
+        deadlineMinutes: 20,
+        fee: poolFee ?? 10000,
+        dexId: launchpadDex,
+        forceUnwrapNative: true,
+        skipSimulation: !v3BuyEnabled || needsSellApproval,
+    })
+
+    const canBuy = isGraduated ? canBuyV3 : canBuyBC
+    const canSell = isGraduated ? canSellV3 : canSellBC
+    const buyExpectedOut = isGraduated ? v3BuyExpectedOut : bcBuyExpectedOut
+    const minTokenOut = isGraduated ? v3MinTokenOut : bcMinTokenOut
+    const isBuyPreparing = isGraduated ? isBuyPreparingV3 : isBuyPreparingBC
+    const isBuyExecuting = isGraduated ? isBuyExecutingV3 : isBuyExecutingBC
+    const isBuyConfirming = isGraduated ? isBuyConfirmingV3 : isBuyConfirmingBC
+    const isBuySuccess = isGraduated ? isBuySuccessV3 : isBuySuccessBC
+    const isBuyError = isGraduated ? isBuyErrorV3 : isBuyErrorBC
+    const buyError = isGraduated ? buyErrorV3 : buyErrorBC
+    const buyHash = isGraduated ? buyHashV3 : buyHashBC
+
+    const sellExpectedOut = isGraduated ? v3SellExpectedOut : bcSellExpectedOut
+    const minNativeOut = isGraduated ? v3MinNativeOut : bcMinNativeOut
+    const isSellPreparing = isGraduated ? isSellPreparingV3 : isSellPreparingBC
+    const isSellExecuting = isGraduated ? isSellExecutingV3 : isSellExecutingBC
+    const isSellConfirming = isGraduated ? isSellConfirmingV3 : isSellConfirmingBC
+    const isSellSuccess = isGraduated ? isSellSuccessV3 : isSellSuccessBC
+    const isSellError = isGraduated ? isSellErrorV3 : isSellErrorBC
+    const sellError = isGraduated ? sellErrorV3 : sellErrorBC
+    const sellHash = isGraduated ? sellHashV3 : sellHashBC
+
     useEffect(() => {
         if (!isBuySuccess || !buyHash) return
         const metadata = getChainMetadata(chainId)
@@ -321,7 +367,6 @@ export function TokenTradeCard({
         refetchTokens()
     }, [isBuySuccess, buyHash])
 
-    // Handle sell success
     useEffect(() => {
         if (!isSellSuccess || !sellHash) return
         const metadata = getChainMetadata(chainId)
@@ -337,7 +382,6 @@ export function TokenTradeCard({
         refetchTokens()
     }, [isSellSuccess, sellHash])
 
-    // Handle graduate success
     useEffect(() => {
         if (!isGraduateSuccess || !graduateHash) return
         const metadata = getChainMetadata(chainId)
@@ -350,7 +394,6 @@ export function TokenTradeCard({
         refetchReserves()
     }, [isGraduateSuccess, graduateHash])
 
-    // Handle errors
     useEffect(() => {
         if (isBuyError && buyError) toastError(buyError, 'Buy failed')
     }, [isBuyError, buyError])
@@ -432,7 +475,6 @@ export function TokenTradeCard({
         graduationAmount > 0n &&
         nativeReserve >= (graduationAmount * 90n) / 100n
 
-    // Ready to graduate — show graduate button
     if (readyToGraduate) {
         return (
             <>
@@ -491,7 +533,6 @@ export function TokenTradeCard({
         )
     }
 
-    // Graduated but pool not found — show message
     if (isGraduated && !poolAddress) {
         return (
             <Card>
@@ -507,7 +548,6 @@ export function TokenTradeCard({
         )
     }
 
-    // Bonding curve or V3 — full buy/sell UI
     return (
         <>
             <Card className="overflow-hidden">

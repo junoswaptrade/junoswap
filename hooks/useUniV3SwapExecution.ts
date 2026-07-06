@@ -25,6 +25,7 @@ import {
     buildMulticallMultiHopSwapToNativeV1,
 } from '@/services/dex/uniswap-v3'
 import type { SwapRoute } from '@/types/routing'
+import type { DEXType } from '@/types/dex'
 import { toastError } from '@/lib/toast'
 import { isNativeToken, shouldSkipUnwrap } from '@/lib/wagmi'
 import { getWrapOperation, getWrappedNativeAddress } from '@/services/tokens'
@@ -38,15 +39,18 @@ interface UseUniV3SwapExecutionParams {
     amountIn: bigint
     amountOutMinimum: bigint
     recipient: Address
-    slippage: number // in percentage (0.5, 1, etc.)
+    slippage: number
     deadlineMinutes: number
     fee: number
     route?: SwapRoute
-    skipSimulation?: boolean // Skip simulation during approval phase
+    skipSimulation?: boolean
+    dexId?: DEXType
+    forceUnwrapNative?: boolean
 }
 
 interface UseUniV3SwapExecutionResult {
     swap: () => void
+    canSwap: boolean
     result: SwapResult | null
     isPreparing: boolean
     isExecuting: boolean
@@ -70,18 +74,21 @@ export function useUniV3SwapExecution({
     fee,
     route,
     skipSimulation = false,
+    dexId,
+    forceUnwrapNative = false,
 }: UseUniV3SwapExecutionParams): UseUniV3SwapExecutionResult {
     const { selectedDex } = useSwapStore()
     const referrer = useReferrer()
-    const dexConfig = getV3Config(tokenIn.chainId, selectedDex)
-    const routerIsV1 = isRouterV1(tokenIn.chainId, selectedDex)
+    const activeDex = dexId ?? selectedDex
+    const dexConfig = getV3Config(tokenIn.chainId, activeDex)
+    const routerIsV1 = isRouterV1(tokenIn.chainId, activeDex)
     const routerAbi = routerIsV1 ? UNISWAP_V3_SWAP_ROUTER_V1_ABI : UNISWAP_V3_SWAP_ROUTER_ABI
     const wrapOperation = useMemo(() => {
         return getWrapOperation(tokenIn, tokenOut)
     }, [tokenIn, tokenOut])
     const isNativeInput = isNativeToken(tokenIn.address as Address)
     const isNativeOutput = isNativeToken(tokenOut.address as Address)
-    const skipUnwrap = isNativeOutput && shouldSkipUnwrap(tokenIn.chainId)
+    const skipUnwrap = !forceUnwrapNative && isNativeOutput && shouldSkipUnwrap(tokenIn.chainId)
     const contractCall = useMemo(() => {
         const swapParams: SwapParams = {
             tokenIn: tokenIn.address as Address,
@@ -89,7 +96,7 @@ export function useUniV3SwapExecution({
             amountIn,
             amountOutMinimum,
             recipient,
-            slippageTolerance: Math.floor(slippage * 100), // Convert to basis points
+            slippageTolerance: Math.floor(slippage * 100),
             deadline: Math.floor(Date.now() / 1000) + deadlineMinutes * 60,
         }
 
@@ -232,12 +239,8 @@ export function useUniV3SwapExecution({
                   query: {
                       enabled: amountIn > 0n && !!dexConfig && !skipSimulation,
                   },
-              }) as any // eslint-disable-line @typescript-eslint/no-explicit-any -- complex conditional type union
+              }) as any // eslint-disable-line @typescript-eslint/no-explicit-any
     )
-    // Every router swap (including Junoswap's own) carries a tracking suffix appended
-    // to the calldata, which requires a raw sendTransaction — writeContract re-encodes
-    // from abi/args and would drop the suffix. Wrap/unwrap is not a swap, so it stays on
-    // the simulated writeContract path and is left untagged.
     const shouldTag = !wrapOperation
     const {
         data: writeHash,
@@ -257,9 +260,10 @@ export function useUniV3SwapExecution({
     const isExecuting = shouldTag ? isSending : isWriting
     const isError = shouldTag ? isSendError : isWriteError
     const error = shouldTag ? sendError : writeError
-    const { isSuccess, isPending: isConfirming } = useWaitForTransactionReceipt({
+    const { isSuccess, isPending: isReceiptPending } = useWaitForTransactionReceipt({
         hash,
     })
+    const isConfirming = !!hash && isReceiptPending
     const executeSwap = () => {
         if (!dexConfig && !wrapOperation) {
             toastError('DEX config not found for this chain')
@@ -275,9 +279,6 @@ export function useUniV3SwapExecution({
                     abi: routerAbi,
                     functionName: contractCall.functionName,
                     args: contractCall.args,
-                    // shouldTag implies !wrapOperation, so functionName is always a
-                    // router method here, but the contractCall union still includes
-                    // the wrap ops — erase the param type rather than narrow.
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any),
                 referrer
@@ -296,6 +297,7 @@ export function useUniV3SwapExecution({
     }
     return {
         swap: executeSwap,
+        canSwap: !!simulationData?.request,
         result: null,
         isPreparing,
         isExecuting,

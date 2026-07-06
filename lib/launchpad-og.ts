@@ -3,6 +3,8 @@
  * Talks to Ponder directly via PONDER_URL (never imported client-side).
  */
 
+import { resolveLaunchpadLogo } from '@/lib/logo'
+
 interface LaunchTokenMeta {
     address: string
     name: string
@@ -104,7 +106,7 @@ export async function fetchLaunchTokenMeta(address: string): Promise<LaunchToken
             address,
             name: token.name ?? '',
             symbol: token.symbol ?? '',
-            logo: token.logo ?? '',
+            logo: resolveLaunchpadLogo(token.logo),
             description: token.description ?? '',
             isGraduated: token.isGraduated === 1,
             marketCapNative: Number.isFinite(marketCap) && marketCap > 0 ? marketCap : null,

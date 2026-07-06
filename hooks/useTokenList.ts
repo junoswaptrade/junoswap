@@ -5,6 +5,7 @@ import type { Address } from 'viem'
 import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { ponderRequest } from '@/lib/ponder-client'
+import { resolveLaunchpadLogo } from '@/lib/logo'
 import type { LaunchToken } from '@/types/launchpad'
 
 const TOKEN_LIST_QUERY = `
@@ -103,7 +104,7 @@ export function useTokenList(): UseTokenListResult {
                     address: t.tokenAddr as Address,
                     name: t.name ?? '',
                     symbol: t.symbol ?? '',
-                    logo: t.logo ?? '',
+                    logo: resolveLaunchpadLogo(t.logo),
                     description: t.description ?? '',
                     link1: t.link1 ?? '',
                     link2: t.link2 ?? '',
