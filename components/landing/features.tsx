@@ -4,7 +4,7 @@ import { type ComponentType, type FC } from 'react'
 import { GraduationCap, Repeat, Rocket } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useScrollReveal } from '@/hooks/use-scroll-reveal'
+import { useScrollReveal } from '@/hooks/useScrollReveal'
 
 interface Feature {
     name: string

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { useScrollRevealGroup } from '@/hooks/use-scroll-reveal'
+import { useScrollRevealGroup } from '@/hooks/useScrollReveal'
 
 const liveChains = [
     { name: 'KUB Chain', icon: '/chains/kubchain.png' },

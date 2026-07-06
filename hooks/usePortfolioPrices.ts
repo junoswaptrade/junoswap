@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTokenPrices } from '@/hooks/use-token-prices'
+import { useTokenPrices } from '@/hooks/useTokenPrices'
 import type { Token } from '@/types/tokens'
-import type { TokenHolding } from '@/hooks/use-multi-balances'
+import type { TokenHolding } from '@/hooks/useMultiBalances'
 import type { TokenType } from '@/types/portfolio'
 
 export function usePortfolioPrices(

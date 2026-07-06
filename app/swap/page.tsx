@@ -7,7 +7,7 @@ import { SwapCard } from '@/components/swap/swap-card'
 import { DexSelectCard } from '@/components/swap/dex-select-card'
 import { SwapChartWrapper } from '@/components/swap/swap-chart-wrapper'
 import { useSwapStore } from '@/store/swap-store'
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 
 const SWAP_SUPPORTED_CHAINS = [kubTestnet, bitkub, jbc, worldchain, base, bsc] as const
 
@@ -26,7 +26,7 @@ export default function SwapPage() {
 function SwapContent() {
     const chainId = useChainId()
     const { switchChain } = useSwitchChain()
-    const showChart = useSwapStore((state) => state.settings.showChart)
+    const [showChart, setShowChart] = useState(false)
     const tokenIn = useSwapStore((state) => state.tokenIn)
     const tokenOut = useSwapStore((state) => state.tokenOut)
     const isCorrectChain = SWAP_SUPPORTED_CHAINS.some((chain) => chain.id === chainId)
@@ -55,7 +55,7 @@ function SwapContent() {
                     </div>
                 )}
                 <div className="order-2 w-full max-w-md space-y-4 lg:w-[448px] lg:flex-none">
-                    <SwapCard />
+                    <SwapCard showChart={showChart} onToggleChart={() => setShowChart((v) => !v)} />
                     <DexSelectCard />
                 </div>
             </div>

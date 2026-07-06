@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useScrollReveal } from '@/hooks/use-scroll-reveal'
+import { useScrollReveal } from '@/hooks/useScrollReveal'
 
 export function CTA() {
     const { ref, isVisible } = useScrollReveal({ threshold: 0.2 })

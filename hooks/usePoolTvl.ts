@@ -6,7 +6,7 @@ import type { Address } from 'viem'
 import { useReadContracts } from 'wagmi'
 import type { V3PoolData } from '@/types/earn'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
-import { useTokenPriceMap } from '@/hooks/use-token-price-map'
+import { useTokenPriceMap } from '@/hooks/useTokenPriceMap'
 
 const BALANCE_OF_ABI = [
     {

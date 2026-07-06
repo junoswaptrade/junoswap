@@ -4,7 +4,8 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { ponderRequest, isPonderError } from '@/lib/ponder-client'
-import { useTokenDiscovery } from '@/hooks/use-token-discovery'
+import { resolveLaunchpadLogo } from '@/lib/logo'
+import { useTokenDiscovery } from '@/hooks/useTokenDiscovery'
 import type { Token } from '@/types/tokens'
 
 interface TokenHolderResponse {
@@ -100,7 +101,7 @@ export function usePortfolioTokens(chainId: number, userAddress?: Address) {
                     map.set(t.tokenAddr.toLowerCase(), {
                         name: t.name ?? '',
                         symbol: t.symbol ?? '',
-                        logo: t.logo ?? '',
+                        logo: resolveLaunchpadLogo(t.logo),
                     })
                 }
                 return map

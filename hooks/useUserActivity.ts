@@ -6,6 +6,7 @@ import { ponderRequest, isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
 import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
 import { getTokensForChain } from '@/lib/tokens'
+import { resolveLaunchpadLogo } from '@/lib/logo'
 import type { ActivityEvent, ActivityLeg } from '@/types/portfolio'
 
 const PAGE_SIZE = 20
@@ -271,7 +272,7 @@ async function fetchTokenMeta(): Promise<Map<string, TokenMeta>> {
         map.set(t.tokenAddr.toLowerCase(), {
             symbol: t.symbol || '',
             name: t.name || '',
-            logo: t.logo || '',
+            logo: resolveLaunchpadLogo(t.logo),
             decimals: 18,
         })
     }
@@ -349,7 +350,7 @@ export function useUserActivity(
                         tokenMeta.set(addr, {
                             symbol: t.symbol,
                             name: t.name,
-                            logo: t.logo ?? '',
+                            logo: resolveLaunchpadLogo(t.logo),
                             decimals: t.decimals ?? 18,
                         })
                     }

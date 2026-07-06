@@ -8,9 +8,9 @@ import { isNativeToken } from '@/lib/wagmi'
 import { ponderRequest, isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
 import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
-import { useTokenDiscovery } from '@/hooks/use-token-discovery'
-import { useMultiBalances } from '@/hooks/use-multi-balances'
-import { useTokenPrices } from '@/hooks/use-token-prices'
+import { useTokenDiscovery } from '@/hooks/useTokenDiscovery'
+import { useMultiBalances } from '@/hooks/useMultiBalances'
+import { useTokenPrices } from '@/hooks/useTokenPrices'
 import { useNativeUsdPriceHistory } from '@/hooks/useNativeUsdPriceHistory'
 import {
     computeTraderStatsByAddress,

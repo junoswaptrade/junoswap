@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { useScrollReveal, useScrollRevealGroup } from '@/hooks/use-scroll-reveal'
+import { useScrollReveal, useScrollRevealGroup } from '@/hooks/useScrollReveal'
 
 export function Footer() {
     const year = new Date().getFullYear()

@@ -35,9 +35,11 @@ import { useKkubUnwrap } from '@/hooks/useKkubUnwrap'
 
 interface SwapCardProps {
     tokens?: Token[]
+    showChart?: boolean
+    onToggleChart?: () => void
 }
 
-export function SwapCard({ tokens: tokensOverride }: SwapCardProps) {
+export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: SwapCardProps) {
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
@@ -58,7 +60,6 @@ export function SwapCard({ tokens: tokensOverride }: SwapCardProps) {
         setIsLoading,
         setSlippage,
         setDeadlineMinutes,
-        setShowChart,
         selectedDex,
         setSelectedDex,
     } = useSwapStore()
@@ -361,19 +362,21 @@ export function SwapCard({ tokens: tokensOverride }: SwapCardProps) {
             <CardContent className="p-0">
                 <div className="flex items-center justify-between px-6 pt-4">
                     <h2 className="text-base font-semibold">Swap</h2>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Toggle price chart"
-                        title="Toggle price chart"
-                        className={cn(
-                            'h-8 w-8',
-                            settings.showChart ? 'text-primary' : 'text-muted-foreground'
-                        )}
-                        onClick={() => setShowChart(!settings.showChart)}
-                    >
-                        <CandlestickChart className="h-4 w-4" />
-                    </Button>
+                    {onToggleChart && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Toggle price chart"
+                            title="Toggle price chart"
+                            className={cn(
+                                'h-8 w-8',
+                                showChart ? 'text-primary' : 'text-muted-foreground'
+                            )}
+                            onClick={onToggleChart}
+                        >
+                            <CandlestickChart className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
                 <div className="space-y-2 px-6 pb-6 pt-3">
                     <div className="flex items-center justify-between">

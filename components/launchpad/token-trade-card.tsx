@@ -10,8 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
-import { useBondingCurveBuy } from '@/hooks/useBondingCurveBuy'
-import { useBondingCurveSell } from '@/hooks/useBondingCurveSell'
+import { useBondingCurveSwapExecution } from '@/hooks/useBondingCurveSwapExecution'
 import { useUniV3SwapExecution } from '@/hooks/useUniV3SwapExecution'
 import { useUniV3Quote } from '@/hooks/useUniV3Quote'
 import { useGraduate } from '@/hooks/useGraduate'
@@ -167,10 +166,10 @@ export function TokenTradeCard({
     }, [sellAmount, tokenDecimals])
 
     const {
-        buy: bcBuy,
-        canBuy: canBuyBC,
+        execute: bcBuy,
+        canExecute: canBuyBC,
         expectedOut: bcBuyExpectedOut,
-        minTokenOut: bcMinTokenOut,
+        minOut: bcMinTokenOut,
         isPreparing: isBuyPreparingBC,
         isExecuting: isBuyExecutingBC,
         isConfirming: isBuyConfirmingBC,
@@ -178,9 +177,10 @@ export function TokenTradeCard({
         isError: isBuyErrorBC,
         error: buyErrorBC,
         hash: buyHashBC,
-    } = useBondingCurveBuy({
+    } = useBondingCurveSwapExecution({
+        side: 'buy',
         tokenAddr,
-        nativeAmount: buyAmountWei,
+        amount: buyAmountWei,
         nativeReserve,
         tokenReserve,
         virtualAmount,
@@ -250,10 +250,10 @@ export function TokenTradeCard({
     })
 
     const {
-        sell: bcSell,
-        canSell: canSellBC,
+        execute: bcSell,
+        canExecute: canSellBC,
         expectedOut: bcSellExpectedOut,
-        minNativeOut: bcMinNativeOut,
+        minOut: bcMinNativeOut,
         isPreparing: isSellPreparingBC,
         isExecuting: isSellExecutingBC,
         isConfirming: isSellConfirmingBC,
@@ -261,9 +261,10 @@ export function TokenTradeCard({
         isError: isSellErrorBC,
         error: sellErrorBC,
         hash: sellHashBC,
-    } = useBondingCurveSell({
+    } = useBondingCurveSwapExecution({
+        side: 'sell',
         tokenAddr,
-        tokenAmount: sellAmountWei,
+        amount: sellAmountWei,
         nativeReserve,
         tokenReserve,
         virtualAmount,
@@ -601,7 +602,7 @@ export function TokenTradeCard({
                                         placeholder="0.0"
                                         value={buyAmount}
                                         onChange={(e) => handleBuyInputChange(e.target.value)}
-                                        className="h-12 sm:h-14 bg-muted/50 border-0 text-base sm:text-lg font-semibold pr-12 sm:pr-16 focus-visible:ring-1 focus-visible:ring-primary/30"
+                                        className="h-12 sm:h-14 bg-muted/50 border-0 text-base sm:text-lg font-semibold pr-12 sm:pr-16"
                                     />
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                                         KUB
@@ -692,7 +693,7 @@ export function TokenTradeCard({
                                         placeholder="0.0"
                                         value={sellAmount}
                                         onChange={(e) => handleSellInputChange(e.target.value)}
-                                        className="h-12 sm:h-14 bg-muted/50 border-0 text-base sm:text-lg font-semibold pr-14 sm:pr-20 focus-visible:ring-1 focus-visible:ring-primary/30"
+                                        className="h-12 sm:h-14 bg-muted/50 border-0 text-base sm:text-lg font-semibold pr-14 sm:pr-20"
                                     />
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground max-w-[80px] truncate">
                                         {tokenSymbol}

@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { fetchLaunchTokenMeta } from '@/lib/launchpad-og'
+import { tokenHue } from '@/lib/token-color'
 import { formatCompact } from '@/services/launchpad'
 
 export const alt = 'Junoswap Launchpad token'
@@ -77,6 +78,8 @@ export default async function Image({ params }: { params: Promise<{ address: str
             .replace(/[^a-zA-Z0-9]/g, '')
             .slice(0, 2)
             .toUpperCase() || '?'
+    // Match TokenIcon's per-symbol placeholder hue (dark-mode tones — card is dark).
+    const hue = tokenHue(symbol)
 
     return new ImageResponse(
         <div
@@ -291,7 +294,9 @@ export default async function Image({ params }: { params: Promise<{ address: str
                                 height: 300,
                                 borderRadius: 24,
                                 overflow: 'hidden',
-                                backgroundColor: 'rgba(255,255,255,0.04)',
+                                backgroundColor: tokenLogo
+                                    ? 'rgba(255,255,255,0.04)'
+                                    : `hsl(${hue} 70% 50% / 0.18)`,
                             }}
                         >
                             {tokenLogo ? (
@@ -308,7 +313,7 @@ export default async function Image({ params }: { params: Promise<{ address: str
                                         display: 'flex',
                                         fontSize: 120,
                                         fontWeight: 800,
-                                        color: 'rgba(255,255,255,0.45)',
+                                        color: `hsl(${hue} 70% 70%)`,
                                     }}
                                 >
                                     {initials}

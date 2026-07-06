@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { tokenHue } from '@/lib/token-color'
 
 type TokenIconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
@@ -66,13 +67,19 @@ function TokenIconInner({
     const [errored, setErrored] = useState(false)
     const { container, text, sizes } = SIZE_MAP[size]
     const shape = variant === 'square' ? 'rounded-xl' : 'rounded-full'
-    const fallbackStyle = cn(text, 'bg-primary/15 text-primary font-semibold')
+    // Deterministic pastel per symbol: hue flows in via a CSS variable so the
+    // static arbitrary-value classes below can theme the text for light/dark.
+    const fallbackStyle = cn(
+        text,
+        'bg-[hsl(var(--token-hue)_70%_50%/0.15)] text-[hsl(var(--token-hue)_75%_38%)] dark:text-[hsl(var(--token-hue)_70%_68%)] font-semibold'
+    )
 
     // No logo (or a failed load): render the initials badge directly so logo-less or
     // broken-logo tokens (imported / external V3) always show a legible icon.
     if (!src || errored) {
         return (
             <span
+                style={{ '--token-hue': String(tokenHue(symbol)) } as React.CSSProperties}
                 className={cn(
                     container,
                     shape,

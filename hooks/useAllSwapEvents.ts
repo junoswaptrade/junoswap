@@ -5,6 +5,7 @@ import { useChainId } from 'wagmi'
 import type { Address } from 'viem'
 import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
 import { ponderRequest } from '@/lib/ponder-client'
+import { resolveLaunchpadLogo } from '@/lib/logo'
 import type { EnrichedSwapEvent } from '@/types/launchpad'
 
 const ALL_SWAP_EVENTS_QUERY = `
@@ -73,7 +74,7 @@ export function useAllSwapEvents() {
             const tokenMeta = new Map<string, { logo: string; name: string; symbol: string }>()
             for (const token of data.launchTokens.items) {
                 tokenMeta.set(token.tokenAddr.toLowerCase(), {
-                    logo: token.logo ?? '',
+                    logo: resolveLaunchpadLogo(token.logo),
                     name: token.name ?? '',
                     symbol: token.symbol ?? '',
                 })

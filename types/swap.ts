@@ -49,7 +49,6 @@ export interface SwapSettings {
     deadlineMinutes: number
     expertMode: boolean
     autoSelectBestDex: boolean
-    showChart: boolean // toggles the swap-page price chart (persisted, default off)
 }
 
 export interface SwapState {

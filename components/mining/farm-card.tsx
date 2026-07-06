@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { TokenIcon, TokenIconPair } from '@/components/ui/token-icon'
 import { ConnectModal } from '@/components/web3/connect-modal'
 import { formatTokenAmount, getDisplayToken } from '@/services/tokens'
-import { useTokenPriceMap } from '@/hooks/use-token-price-map'
+import { useTokenPriceMap } from '@/hooks/useTokenPriceMap'
 import {
     formatTimeRemaining,
     getIncentiveProgress,

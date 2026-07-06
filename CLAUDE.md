@@ -7,11 +7,11 @@ Junoswap — multi-chain DeFi aggregator (swap, bridge, LP, launchpad). Live at 
 ## Directory map
 
 app/            Next.js App Router pages + server actions
-components/     React components by feature (swap/, bridge/, positions/, mining/, launchpad/, web3/, ui/)
+components/     React components by feature
 hooks/          Custom hooks — all blockchain interactions live here
-services/       Pure business logic (no React): dex/, liquidity/, mining/, bridge/
-store/          Zustand stores (swap, bridge, earn, launchpad)
-lib/            Config & utilities: wagmi.ts, dex-config.ts, routing-config.ts, abis/, token lists
+services/       Pure business logic (no React)
+store/          Zustand stores
+lib/            Config & utilities
 types/          TypeScript type definitions by domain
 contracts/      Foundry Solidity project (BondingCurveJunoswap bonding curve) — git submodule
 
@@ -19,7 +19,7 @@ contracts/      Foundry Solidity project (BondingCurveJunoswap bonding curve) �
 
 - Runtime: **bun only** — never use npm, yarn, or pnpm. Lockfile is `bun.lock`.
 - Tests: test business logic, not framework behavior — skip tautologies, passthroughs, exact duplicates, and trivial defaults.
-- Comments: comment only genuinely complex or non-obvious code — the *why*, gotchas, workarounds, magic-value/address decoders, sign conventions, contract-ABI correspondences, and math derivations. Do NOT add section-divider banners (`// ==== X ====`, `// ── X ──`), one-word grouping labels (`// Settings`, `// Actions`), JSDoc that restates the function/type name, or inline narration of self-evident code.
+- Comments: comment only genuinely complex or non-obvious code
 
 ## Notes
 

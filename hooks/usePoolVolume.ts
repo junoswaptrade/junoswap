@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { formatEther } from 'viem'
 import { ponderRequest, isPonderError } from '@/lib/ponder-client'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
-import { useTokenPriceMap } from '@/hooks/use-token-price-map'
+import { useTokenPriceMap } from '@/hooks/useTokenPriceMap'
 import type { V3PoolData } from '@/types/earn'
 
 const SECONDS_PER_DAY = 86400

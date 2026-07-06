@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
 import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { resolveLaunchpadLogo } from '@/lib/logo'
 import type { Token } from '@/types/tokens'
 
 const GRADUATED_TOKENS_QUERY = `
@@ -51,7 +52,7 @@ export function useGraduatedTokens(chainId: number): { tokens: Token[]; isLoadin
                             name: t.name || '',
                             decimals: 18,
                             chainId,
-                            logo: t.logo ?? '',
+                            logo: resolveLaunchpadLogo(t.logo),
                         })
                     )
             } catch (e) {

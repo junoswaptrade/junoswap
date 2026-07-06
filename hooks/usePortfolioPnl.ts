@@ -7,7 +7,7 @@ import {
     type PortfolioPnlTotals,
 } from '@/services/dex/portfolio-pnl'
 import type { UserSwapEvent } from '@/hooks/useUserSwapEvents'
-import type { TokenHolding } from '@/hooks/use-multi-balances'
+import type { TokenHolding } from '@/hooks/useMultiBalances'
 
 const EMPTY_TOTALS: PortfolioPnlTotals = {
     totalInvestedUsd: 0,

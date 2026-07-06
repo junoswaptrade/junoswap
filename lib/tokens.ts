@@ -1,6 +1,7 @@
 import type { Token } from '@/types/tokens'
 import type { Address } from 'viem'
 import { kubTestnet, jbc, bitkub, worldchain, base, bsc, isNativeToken } from './wagmi'
+import { resolveLaunchpadLogo } from './logo'
 import tokenData from './tokens.json'
 
 const KUSDT_ADDRESS = '0x7d984C24d2499D840eB3b7016077164e15E5faA6' as const
@@ -29,7 +30,15 @@ type RawToken = Omit<Token, 'chainId' | 'address'> & { address: string }
 export const TOKEN_LISTS: Record<number, Token[]> = Object.fromEntries(
     Object.entries(tokenData as Record<string, RawToken[]>).map(([slug, tokens]) => {
         const chainId = CHAIN_ID_BY_SLUG[slug]
-        return [chainId, tokens.map((t) => ({ ...t, chainId, address: t.address as Address }))]
+        return [
+            chainId,
+            tokens.map((t) => ({
+                ...t,
+                chainId,
+                address: t.address as Address,
+                logo: resolveLaunchpadLogo(t.logo),
+            })),
+        ]
     })
 )
 
