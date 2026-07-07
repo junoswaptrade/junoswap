@@ -104,7 +104,6 @@ function PoolRow({
     const isToken1Stable = !!stablecoin && eq(pool.token1, stablecoin)
     const isToken1Native = isNative(pool.token1)
 
-    // Ensure stable/native displays second; native+stable pair shows NATIVE / STABLE
     let [display0, display1] = [pool.token0, pool.token1]
     if (isToken0Stable && isToken1Native) {
         ;[display0, display1] = [pool.token1, pool.token0]

@@ -37,7 +37,6 @@ export function SendDialog({ open, onOpenChange }: SendDialogProps) {
     const [recipientInput, setRecipientInput] = useState('')
     const [amount, setAmount] = useState('')
 
-    // Default to the chain's native token; keep selection if it survives a token-list refresh / chain switch.
     useEffect(() => {
         if (tokens.length === 0) return
         const stillPresent =
@@ -73,7 +72,6 @@ export function SendDialog({ open, onOpenChange }: SendDialogProps) {
         }
     }
 
-    // Success: toast with explorer link, refresh balance, reset + close.
     useEffect(() => {
         if (isSuccess && hash) {
             const explorerUrl = getExplorerTxUrl(chainId, hash)
@@ -97,7 +95,6 @@ export function SendDialog({ open, onOpenChange }: SendDialogProps) {
         }
     }, [isError, error])
 
-    // Clear local + transaction state when the dialog closes.
     useEffect(() => {
         if (!open) {
             reset()

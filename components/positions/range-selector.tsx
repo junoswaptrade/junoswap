@@ -42,7 +42,6 @@ function EditablePrice({
     const startEditing = useCallback(() => {
         setDraft(value)
         setEditing(true)
-        // Focus on next tick so the ref is attached
         requestAnimationFrame(() => inputRef.current?.select())
     }, [value])
 
@@ -96,7 +95,6 @@ function InteractiveRangeBar({
     const isDraggingRef = useRef(false)
     const frozenViewportRef = useRef<{ lower: number; upper: number } | null>(null)
 
-    // Viewport: the visible range of the slider track
     const viewport = useMemo(() => {
         if (isDraggingRef.current && frozenViewportRef.current) {
             return frozenViewportRef.current
@@ -106,7 +104,6 @@ function InteractiveRangeBar({
         return vp
     }, [config.tickLower, config.tickUpper, config.preset])
 
-    // Map ticks to slider positions (0-SLIDER_RESOLUTION)
     const [sliderLower, sliderUpper] = useMemo(() => {
         const span = viewport.upper - viewport.lower
         if (span <= 0) return [0, SLIDER_RESOLUTION]
@@ -116,7 +113,6 @@ function InteractiveRangeBar({
         ]
     }, [config.tickLower, config.tickUpper, viewport])
 
-    // Current price marker position (%)
     const priceMarkerPct = useMemo(() => {
         const span = viewport.upper - viewport.lower
         if (span <= 0) return 50
@@ -124,7 +120,6 @@ function InteractiveRangeBar({
         return Math.max(2, Math.min(98, pct))
     }, [currentTick, viewport])
 
-    // Range percentage display
     const rangePercent = useMemo(() => {
         if (config.tickLower >= config.tickUpper) return null
         return calculateRangePercentage(currentTick, config.tickLower, config.tickUpper)

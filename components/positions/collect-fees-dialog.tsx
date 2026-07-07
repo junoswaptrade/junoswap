@@ -42,9 +42,6 @@ export function CollectFeesDialog({
         error,
         hash,
     } = useCollectFees(selectedPosition, address)
-    // Guard against re-firing: onSuccess bumps a refresh nonce on the page, which
-    // re-renders this dialog while isSuccess/hash stay true — without the ref the
-    // effect would loop.
     const handledHashRef = useRef<string | null>(null)
     useEffect(() => {
         if (isSuccess && hash && hash !== handledHashRef.current) {

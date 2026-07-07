@@ -22,11 +22,6 @@ import { tickToPrice, MIN_TICK, MAX_TICK } from '@/lib/liquidity-helpers'
 import { KNOWN_INCENTIVES } from '@/lib/mining-constants'
 import type { PositionWithTokens, StakedPosition } from '@/types/earn'
 
-// Full-range positions land a few ticks inside MIN/MAX depending on the pool's tick
-// spacing (widest is 200), since the bounds are nearestUsableTick(MIN/MAX, spacing).
-// A fixed tolerance detects them regardless of the fee→spacing assumption; at this
-// many ticks from the extreme the price is still effectively 0 / ∞, so no genuinely
-// bounded position is misclassified.
 const FULL_RANGE_TICK_TOLERANCE = 256
 
 interface PositionActions {
@@ -68,7 +63,6 @@ function PositionCard({
         position.token0Info.decimals,
         position.token1Info.decimals
     )
-    // Full-range positions span the entire min/max tick, so the range bar conveys nothing.
     const isFullRange =
         position.tickLower <= MIN_TICK + FULL_RANGE_TICK_TOLERANCE &&
         position.tickUpper >= MAX_TICK - FULL_RANGE_TICK_TOLERANCE
@@ -371,8 +365,6 @@ export function PositionsList({
         address,
         chainId
     )
-    // refreshNonce makes the hook re-read localStorage after a stake/unstake mutates it;
-    // the page invalidates the query cache to refresh the on-chain reads themselves.
     const { tokenIds: stakedTokenIds, isLoading: isLoadingStakedIds } = useDepositedTokenIds(
         address,
         refreshNonce
@@ -391,7 +383,6 @@ export function PositionsList({
     const { rewards: rewardsMap, isLoading: isLoadingRewards } =
         usePendingRewardsMultiple(stakedDetails)
 
-    // tokenId -> enriched StakedPosition (first incentive wins if staked in several)
     const stakedByTokenId = useMemo(() => {
         const map = new Map<string, StakedPosition>()
         for (const sp of stakedDetails) {
@@ -405,7 +396,6 @@ export function PositionsList({
 
     const allPositions = useMemo(() => {
         const walletIds = new Set(walletPositions.map((p) => p.tokenId.toString()))
-        // Only include staked positions not already in wallet list
         const uniqueStaked = stakedPositions.filter((p) => !walletIds.has(p.tokenId.toString()))
         const merged = [...walletPositions, ...uniqueStaked]
 

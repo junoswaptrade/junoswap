@@ -20,8 +20,6 @@ interface ReferralDialogProps {
     onOpenChange: (open: boolean) => void
 }
 
-// Builds the swap URL with the connected wallet as `?ref=` — the exact param
-// useReferrer() reads back to attribute a swap to this referrer.
 export function ReferralDialog({ open, onOpenChange }: ReferralDialogProps) {
     const { address } = useAccount()
     const [copied, setCopied] = useState(false)

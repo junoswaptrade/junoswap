@@ -16,8 +16,6 @@ export function TokenList({ searchQuery = '' }: TokenListProps) {
     const { tokens, snapshotMap, isLoading } = useTokenList()
     const [sortKey, setSortKey] = useState<LaunchpadSortKey>('last-trade')
 
-    // Build enriched token data — market cap comes from Ponder token_snapshot
-    // (updated on every Swap event by the indexer using the same bonding curve formula)
     const enrichedTokens = useMemo(() => {
         return tokens.map((token) => {
             const snapshot = snapshotMap.get(token.address.toLowerCase())
@@ -34,7 +32,6 @@ export function TokenList({ searchQuery = '' }: TokenListProps) {
         })
     }, [tokens, snapshotMap])
 
-    // Filter by search query
     const filtered = useMemo(() => {
         if (!searchQuery.trim()) return enrichedTokens
         const q = searchQuery.toLowerCase().trim()
@@ -47,7 +44,6 @@ export function TokenList({ searchQuery = '' }: TokenListProps) {
         })
     }, [enrichedTokens, searchQuery])
 
-    // Sort by selected key
     const sorted = useMemo(() => {
         return [...filtered].sort((a, b) => {
             switch (sortKey) {

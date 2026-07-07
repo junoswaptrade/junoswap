@@ -5,6 +5,7 @@ import { formatCompact } from '@/services/launchpad'
 import type { FeeBreakdown } from '@/services/chart'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
+import { AthProgressBar } from './ath-progress-bar'
 
 interface TokenStatsProps {
     marketCap: string
@@ -87,16 +88,11 @@ export function TokenStats({
 
             {athNum > 0 ? (
                 <div className="w-1/3 space-y-1.5">
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                            className="h-full rounded-full transition-all duration-300"
-                            style={{
-                                width: `${Math.min((mcapNum / athNum) * 100, 100)}%`,
-                                background:
-                                    'linear-gradient(90deg, rgb(30 215 96 / 0.3), rgb(30 215 96))',
-                            }}
-                        />
-                    </div>
+                    <AthProgressBar
+                        marketCap={mcapNum}
+                        athMarketCap={athNum}
+                        className="h-2.5 bg-muted"
+                    />
                     <div className="flex justify-end text-xs text-muted-foreground">
                         <span>
                             ATH{' '}

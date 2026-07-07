@@ -45,8 +45,6 @@ export function UnstakeDialog({
     useEffect(() => {
         if (open) setProcessedTxHash(null)
     }, [open])
-    // Guard on the tx hash: onClose/onSuccess have unstable identities, so without it
-    // this effect re-fires while isSuccess stays true and loops (onSuccess bumps state).
     useEffect(() => {
         if (isSuccess && hash && hash !== processedTxHash) {
             if (address && position) {

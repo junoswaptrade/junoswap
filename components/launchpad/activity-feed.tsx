@@ -99,7 +99,6 @@ export function ActivityTicker() {
         return <EmptyState title="No recent activity" className="mb-4 px-3 py-2" />
     }
 
-    // Duplicate events for seamless loop
     const tickerItems = events.length > 3 ? [...events, ...events] : events
 
     return (

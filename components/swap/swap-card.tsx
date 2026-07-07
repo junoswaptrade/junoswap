@@ -122,14 +122,10 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
             fee: quoteData?.fee,
         }
     }, [dexQuotes, selectedDex])
-    // Find the best route for the selected DEX (for swap execution and multi-hop display)
     const selectedDexRoute = useMemo(() => {
         const routesForDex = allRoutes.filter((r) => r.dexId === selectedDex)
         return routesForDex[0] ?? null
     }, [allRoutes, selectedDex])
-    // allRoutes only carries a direct RouteQuote for the primary V2 DEX; when the user (or
-    // auto-select) lands on another DEX we still have its per-DEX quote, so synthesize a direct
-    // route for display + price impact. Execution keeps using selectedDexRoute.
     const displayRoute = useMemo<RouteQuote | null>(() => {
         if (selectedDexRoute) return selectedDexRoute
         if (!selectedDexQuote.quote || !tokenIn || !tokenOut) return null
@@ -171,12 +167,10 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         amountIn: amountInBigInt,
         enabled: !isWrapUnwrap,
     })
-    // Track previous values to avoid unnecessary store updates
     const prevQuoteAmountOutRef = useRef<bigint | null>(null)
     const prevIsLoadingRef = useRef<boolean>(false)
 
     useEffect(() => {
-        // Only update quote if amountOut actually changed
         if (
             effectiveQuote &&
             tokenOut &&
@@ -188,7 +182,6 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
             prevQuoteAmountOutRef.current = null
         }
 
-        // Only update loading state if it actually changed
         if (isQuoteLoading !== prevIsLoadingRef.current) {
             prevIsLoadingRef.current = isQuoteLoading
             setIsLoading(isQuoteLoading)
@@ -290,7 +283,6 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         amount: isKubUnwrapDirect ? amountInBigInt : amountOutMinimum,
         owner: address,
     })
-    // Auto-trigger KKUB unwrap after swap delivers KKUB on KUB chain
     useEffect(() => {
         if (isSuccess && skipUnwrap && !isUnwrapping && !isUnwrapSuccess && !isUnwrapError) {
             startUnwrap()
@@ -352,14 +344,7 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         prevChainIdRef.current = chainId
     }, [chainId, setTokenIn, setTokenOut, isUpdatingFromUrl])
     useEffect(() => {
-        // Don't default-init while a URL-provided token is still resolving, or we'd
-        // clobber it (URL sync and this effect can run in the same passive-effect flush
-        // with a stale `tokenIn === null` closure).
         if (isUpdatingFromUrl || urlTokensPending) return
-        // Read live store state: the URL-sync backfill effect (registered earlier via
-        // useSwapUrlSync) runs before this one in the same flush and may have just
-        // setTokenIn synchronously. The closured tokenIn can still be a stale null, which
-        // would otherwise clobber an async-resolved URL token with the native default.
         const { tokenIn: liveTokenIn, tokenOut: liveTokenOut } = useSwapStore.getState()
         if (!hasInitializedTokensRef.current && !liveTokenIn && tokens.length > 0 && tokens[0]) {
             const { stablecoin, nativeTokens } = getDefaultPairTokens(chainId)

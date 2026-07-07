@@ -9,8 +9,7 @@ export const alt = 'Junoswap Launchpad token'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-// Mirror the share-modal card (components/launchpad/share-token-dialog.tsx).
-const BRAND_FROM = '#ff3333' // primary (hsl(0 100% 60%))
+const BRAND_FROM = '#ff3333'
 const BRAND_TO = '#FF914D'
 const CARD_BG = '#0a0e14'
 const EMERALD_BG = 'rgba(30, 215, 96, 0.15)'
@@ -18,14 +17,8 @@ const EMERALD_TEXT = '#1ED760'
 const RED_BG = 'rgba(233, 20, 41, 0.15)'
 const RED_TEXT = '#E91429'
 
-// Formats satori can rasterize — webp and others crash the renderer.
 const SATORI_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml']
 
-/**
- * The modal renders its logo glyph with a CSS gradient `mask-image`, which satori
- * doesn't support. Instead we recolor logo.svg's white fills to the brand gradient
- * directly (resvg renders SVG gradients), giving the same gradient glyph.
- */
 async function loadBrandLogo(): Promise<string | null> {
     try {
         let svg = (await readFile(join(process.cwd(), 'public', 'logo.svg'))).toString('utf8')
@@ -65,7 +58,6 @@ export default async function Image({ params }: { params: Promise<{ address: str
     const name = token?.name || 'Junoswap Launchpad'
     const change = token?.priceChange1dPct ?? null
 
-    // Same MC rule as the modal: USD when a native price exists, else KUB.
     const mcDisplay =
         token?.marketCapNative != null
             ? token.nativeUsdPrice != null
@@ -78,7 +70,6 @@ export default async function Image({ params }: { params: Promise<{ address: str
             .replace(/[^a-zA-Z0-9]/g, '')
             .slice(0, 2)
             .toUpperCase() || '?'
-    // Match TokenIcon's per-symbol placeholder hue (dark-mode tones — card is dark).
     const hue = tokenHue(symbol)
 
     return new ImageResponse(

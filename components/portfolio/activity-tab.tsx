@@ -66,7 +66,6 @@ function TypeChip({ children, className }: { children: ReactNode; className?: st
     )
 }
 
-// Leads each swap row with the liquidity source: small logo (monogram fallback) + name.
 function ProtocolBadge({ protocol }: { protocol: string }) {
     const { label, logo } = getProtocolMeta(protocol)
     return (
@@ -107,8 +106,6 @@ function AmountLeg({
     )
 }
 
-// USD value for a generalized two-leg trade: prefer the native leg (× nativeUsdPrice),
-// else a stablecoin leg (already USD), else null (no USD shown).
 function generalizedUsd(
     sell: ActivityLeg,
     buy: ActivityLeg,
@@ -146,12 +143,8 @@ function ActivityRow({
 }) {
     const txUrl = getExplorerTxUrl(chainId, event.transactionHash)
     const isTransfer = event.kind === 'transfer'
-    // Narrow mobile rows can't fit a token's full 18-decimal precision; cap the
-    // displayed fraction there while keeping full precision on wider screens.
     const isMobile = useIsMobile()
 
-    // Trade legs. Generalized external swaps (token/token) carry explicit sell/buy
-    // legs; everything else uses the native-centric model (one leg is KUB).
     let outText: string, inText: string
     let outSrc: string | undefined | null, outSymbol: string
     let inSrc: string | undefined | null, inSymbol: string
@@ -187,7 +180,6 @@ function ActivityRow({
                 : `${formatCompact(displayValue)} ${nativeSymbol}`
     }
 
-    // Transfer direction.
     const isSent = event.direction === 'out'
     const transferAmount = BigInt(event.transferAmount ?? '0')
     const counterparty = event.counterparty ?? ''
@@ -200,7 +192,6 @@ function ActivityRow({
             rel="noopener noreferrer"
             className="flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/30 sm:px-4"
         >
-            {/* Type chip — leads every row (neutral; direction is read from the amount color + arrow) */}
             <TypeChip className="bg-muted text-muted-foreground">
                 {isTransfer ? (isSent ? 'Send' : 'Receive') : 'Swap'}
             </TypeChip>
@@ -272,8 +263,6 @@ function ActivityRow({
     )
 }
 
-// Loading skeleton mirrors the row layout
-
 function LoadingSkeleton() {
     return (
         <div className="space-y-1">
@@ -315,7 +304,6 @@ export function ActivityTab({ address, chainId }: ActivityTabProps) {
     const { data: result, isLoading } = useUserActivity(address, chainId, page, 'all')
     const { nativeUsdPrice } = useNativeUsdPriceContext()
 
-    // Resolve the native token (logo + symbol) once per chain for swap-pair icons.
     const nativeToken = useMemo(() => findTokenByAddress(chainId, NATIVE_ADDRESS), [chainId])
     const nativeSymbol = nativeToken?.symbol ?? getChainMetadata(chainId)?.symbol ?? 'KUB'
     const nativeLogo = nativeToken?.logo

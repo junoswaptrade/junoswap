@@ -194,7 +194,6 @@ export function RecentTrades({
     const { nativeUsdPrice } = useNativeUsdPriceContext()
     const chainId = useLaunchpadChainId()
 
-    // Resolve the effective sender filter for the hook
     const hookSenderFilter = useMemo(() => {
         if (debouncedSearch) return debouncedSearch.toLowerCase()
         if (accountFilter === 'creator' && creatorAddress) return creatorAddress.toLowerCase()
@@ -202,14 +201,12 @@ export function RecentTrades({
         return undefined
     }, [accountFilter, creatorAddress, connectedAddress, debouncedSearch])
 
-    // Resolve isBuy filter for the hook
     const hookIsBuyFilter = useMemo<boolean | undefined>(() => {
         if (typeFilter === 'buy') return true
         if (typeFilter === 'sell') return false
         return undefined
     }, [typeFilter])
 
-    // Reset page when filters change
     const filterKey = `${typeFilter}-${hookSenderFilter}-${sizeFilter}`
     useEffect(() => {
         setPage(1)
@@ -227,7 +224,6 @@ export function RecentTrades({
         }
     )
 
-    // Client-side size filtering
     const filteredTrades = useMemo(() => {
         const raw = result?.data ?? []
         if (sizeFilter === 'all') return raw
@@ -245,7 +241,6 @@ export function RecentTrades({
     const totalCount = result?.totalCount ?? 0
     const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
-    // Active account options (conditional on available data)
     const activeAccountOptions = useMemo(() => {
         const opts = [{ value: 'all', label: 'All Accounts' }]
         if (creatorAddress) opts.push({ value: 'creator', label: 'Creator' })

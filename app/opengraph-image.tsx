@@ -6,16 +6,10 @@ export const alt = 'Junoswap — Web3 Aggregation Platform'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-// Hero "Warp Vector" palette (components/landing/hero.tsx + hero-background.tsx).
-const BRAND_FROM = '#ff3333' // primary, hsl(0 100% 60%)
+const BRAND_FROM = '#ff3333'
 const BRAND_TO = '#FF914D'
-const VOID_BG = '#04050B' // hero canvas background
+const VOID_BG = '#04050B'
 
-/**
- * logo.svg is a flat white glyph. Satori can't do the site's CSS `mask-image`
- * gradient, so we inject a real SVG <linearGradient> and repaint the white fills
- * with it (resvg renders SVG gradients) — same trick as the launchpad token OG.
- */
 async function loadBrandLogo(): Promise<string | null> {
     try {
         let svg = (await readFile(join(process.cwd(), 'public', 'logo.svg'))).toString('utf8')
@@ -29,7 +23,6 @@ async function loadBrandLogo(): Promise<string | null> {
     }
 }
 
-// Satori accepts ttf/otf/woff (not woff2). @fontsource ships latin .woff files.
 async function loadInter(weight: 400 | 800): Promise<ArrayBuffer | null> {
     try {
         const res = await fetch(
@@ -77,13 +70,11 @@ export default async function Image() {
                 backgroundColor: VOID_BG,
                 fontFamily,
                 overflow: 'hidden',
-                // Faint grid, matching the token OG density.
                 backgroundImage:
                     'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
                 backgroundSize: '60px 60px',
             }}
         >
-            {/* Warm focal glow (no blur in satori → stacked radial gradients). */}
             <div
                 style={{
                     position: 'absolute',

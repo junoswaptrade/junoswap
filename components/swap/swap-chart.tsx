@@ -52,7 +52,6 @@ export function SwapChart({ tokenIn, tokenOut, className }: SwapChartProps) {
     const prefix = denom === 'usd' ? '$' : ''
     const hasVolume = useMemo(() => candles.some((c) => c.volume > 0), [candles])
 
-    // candles from the hook are already continuous, windowed, and extended to now.
     const lastPrice = candles.length > 0 ? candles[candles.length - 1]!.close : null
     const changePct = useMemo(() => {
         if (candles.length === 0) return null
@@ -166,8 +165,6 @@ export function SwapChart({ tokenIn, tokenOut, className }: SwapChartProps) {
             return
         }
 
-        // Shift to local wall-clock time, kept strictly ascending so the DST
-        // "fall back" hour can't produce duplicate times and trip lightweight-charts.
         let lastT = -Infinity
         const localTimes = candles.map((d) => {
             let t = toLocalChartTime(d.time)

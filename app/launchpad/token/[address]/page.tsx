@@ -38,16 +38,10 @@ function TokenPageContent() {
     const searchParams = useSearchParams()
     const walletChainId = useChainId()
     const tokenAddr = params.address as string
-
-    // The token's chain comes from the URL (?chain=). Old param-less links fall back to
-    // the wallet-derived launchpad chain so they keep resolving.
     const urlChain = parseChainId(searchParams.get('chain') ?? undefined)
     const fallbackChainId = useLaunchpadChainId()
     const activeChainId =
         urlChain !== null && isLaunchpadChain(urlChain) ? urlChain : fallbackChainId
-
-    // Prompt (once) to switch the wallet to the token's chain so trading is ready; reads
-    // work regardless since they target activeChainId directly.
     const { switchChain } = useSwitchChain()
     const promptedRef = useRef(false)
     useEffect(() => {

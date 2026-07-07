@@ -101,9 +101,6 @@ function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
             token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
             token.address.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    // Fetch balances for the visible (filtered) tokens, not a fixed prefix of the full list,
-    // so non-curated tokens (graduated / v3 / imported) — which sort after the curated ones —
-    // still resolve a balance once searched. Single multicall, so the wider set is one call.
     const {
         balances: _balances,
         rawBalances,

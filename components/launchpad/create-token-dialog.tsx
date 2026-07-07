@@ -60,7 +60,6 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
         form: form.name && form.symbol ? form : null,
     })
 
-    // Reset form when dialog opens
     useEffect(() => {
         if (open) {
             setForm({
@@ -77,7 +76,6 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
         }
     }, [open])
 
-    // Handle success
     const handleSuccess = useCallback(async () => {
         const metadata = getChainMetadata(chainId)
         toastSuccess('Token created!', {
@@ -93,13 +91,11 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
         if (isSuccess) handleSuccess()
     }, [isSuccess, handleSuccess])
 
-    // Redirect to the new token's detail page after creation settles
     useEffect(() => {
         if (!createdTokenAddress || !isSuccess) return
         router.push(`/launchpad/token/${createdTokenAddress}?chain=${chainId}`)
     }, [createdTokenAddress, isSuccess, router, chainId])
 
-    // Handle error — partial success (token created but buy failed)
     useEffect(() => {
         if (isError && error && phase === 'error') {
             toastWarning(
@@ -109,20 +105,16 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
         }
     }, [isError, error, phase, onOpenChange])
 
-    // Handle create-phase error
     useEffect(() => {
         if (isError && error && phase === 'error' && !hash) {
             toastError(error, 'Token creation failed')
         }
     }, [isError, error, phase, hash])
 
-    // Optimistically show the new token in the home list, then reconcile
-    // with indexed data once Ponder catches up.
     type TokenListCache = { tokens: LaunchToken[]; snapshotMap: Map<string, unknown> }
     const didPrependRef = useRef(false)
 
     useEffect(() => {
-        // Address cleared by useCreateToken.create() on a new cycle → re-arm.
         if (!createdTokenAddress) {
             didPrependRef.current = false
             return
@@ -152,7 +144,6 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
             return { ...old, tokens: [optimistic, ...old.tokens] }
         })
 
-        // Reconcile with indexed data now, and again once Ponder has caught up.
         queryClient.invalidateQueries({ queryKey: ['launchpad-token-list'] })
         const timeout = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['launchpad-token-list'] })

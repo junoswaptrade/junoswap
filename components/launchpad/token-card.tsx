@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { formatCompact } from '@/services/launchpad'
 import type { LaunchToken } from '@/types/launchpad'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
+import { AthProgressBar } from './ath-progress-bar'
 
 interface TokenCardProps {
     token: LaunchToken
@@ -94,34 +95,19 @@ export function TokenCard({
                                 )}
                             </div>
                         )}
-                        {athMarketCap &&
-                            parseFloat(athMarketCap) > 0 &&
-                            marketCap &&
-                            (() => {
-                                const progress = Math.min(
-                                    (parseFloat(marketCap) / parseFloat(athMarketCap)) * 100,
-                                    100
-                                )
-                                return (
-                                    <div className="space-y-1">
-                                        <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-300"
-                                                style={{
-                                                    width: `${progress}%`,
-                                                    background:
-                                                        'linear-gradient(90deg, rgb(30 215 96 / 0.3), rgb(30 215 96))',
-                                                }}
-                                            />
-                                        </div>
-                                        {isGraduated && (
-                                            <span className="text-xs text-positive font-medium">
-                                                Graduated
-                                            </span>
-                                        )}
-                                    </div>
-                                )
-                            })()}
+                        {athMarketCap && parseFloat(athMarketCap) > 0 && marketCap && (
+                            <div className="space-y-1">
+                                <AthProgressBar
+                                    marketCap={parseFloat(marketCap)}
+                                    athMarketCap={parseFloat(athMarketCap)}
+                                />
+                                {isGraduated && (
+                                    <span className="text-xs text-positive font-medium">
+                                        Graduated
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>

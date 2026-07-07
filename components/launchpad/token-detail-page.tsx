@@ -18,7 +18,6 @@ import { TokenChartWrapper } from './token-chart-wrapper'
 import { TokenStats } from './token-stats'
 import { RecentTrades } from './recent-trades'
 import { TokenHolders } from './token-holders'
-import { TokenDetailSkeleton } from './token-detail-skeleton'
 import { GraduationProgress } from './graduation-progress'
 import { ShareTokenDialog } from './share-token-dialog'
 import { Globe, ArrowLeft, Copy, Check, Share2 } from 'lucide-react'
@@ -31,14 +30,12 @@ interface TokenDetailPageProps {
 
 export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
     const chainId = useLaunchpadChainId()
-    // Get token data from Ponder (includes name, symbol, isGraduated, etc.)
     const { tokens: allTokens, snapshotMap } = useTokenList()
     const tokenInfo = allTokens.find((t) => t.address.toLowerCase() === tokenAddr.toLowerCase())
     const athMarketCap = snapshotMap.get(tokenAddr.toLowerCase())?.athMarketCapNative
 
     const isGraduated = !!tokenInfo?.isGraduated
 
-    // Read bonding curve reserves (only fetches for non-graduated tokens)
     const {
         nativeReserve,
         tokenReserve,
@@ -47,20 +44,16 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
         isLoading: isLoadingReserves,
     } = useTokenReserves({ tokenAddr, isGraduated, chainId })
 
-    // Resolve V3 pool address from Ponder for graduated tokens
     const wrappedNative = INTERMEDIARY_TOKENS[chainId]?.wrappedNative
     const { data: poolAddress } = useGraduatedPoolAddress(
         isGraduated ? tokenAddr : undefined,
         wrappedNative as Address | undefined
     )
 
-    // Compute market cap
     const marketCap = useMemo(() => {
-        // Graduated: use Ponder snapshot mcap (already computed by indexer from V3 swaps)
         if (isGraduated) {
             return snapshotMap.get(tokenAddr.toLowerCase())?.marketCapNative ?? '0'
         }
-        // Non-graduated: compute from bonding curve reserves
         if (virtualAmount > 0n && nativeReserve > 0n && tokenReserve > 0n) {
             return String(
                 (parseFloat(formatEther(virtualAmount + nativeReserve)) /
@@ -73,7 +66,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
 
     const symbol = tokenInfo?.symbol || 'TOKEN'
     const name = tokenInfo?.name || 'Unknown Token'
-    const decimals = 18 // Launch tokens always use 18 decimals
+    const decimals = 18
     const [copied, setCopied] = useState(false)
     const [shareOpen, setShareOpen] = useState(false)
     const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics | null>(null)
@@ -85,7 +78,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
     }
 
     if (isLoadingReserves) {
-        return <TokenDetailSkeleton />
+        return null
     }
 
     return (

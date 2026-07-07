@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button'
 import { Menu, ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-// Social / community links surfaced through the "More" menu.
 const socialLinks = [
     {
         label: 'X',
@@ -72,15 +71,9 @@ export function Header() {
     const { address } = useAccount()
     const isLanding = pathname === '/'
 
-    // The Portfolio link points at the connected wallet so the page opens on the
-    // user's own portfolio; clicking a leaderboard row instead passes that trader's
-    // address. Active highlighting still matches on the bare /portfolio path.
     const navHref = (href: string) =>
         href === '/portfolio' && address ? `/portfolio?address=${address}` : href
 
-    // On the landing page the hero renders behind this nav. Keep the nav
-    // transparent while the hero is still under it, then restore the normal
-    // translucent background once the user scrolls past the hero.
     const [scrolled, setScrolled] = useState(false)
     useEffect(() => {
         if (!isLanding) {
@@ -111,15 +104,7 @@ export function Header() {
         <header
             className={`sticky top-0 z-50 w-full transition-colors duration-300 ${
                 transparent
-                    ? // Hero is dark in both themes, so force the nav into the dark
-                      // token context while it's transparent over it. `text-foreground`
-                      // is set on the header itself so its computed (light) color
-                      // inherits down to icon-only elements (hamburger, chain chevron)
-                      // that don't carry their own text-color class — without it they'd
-                      // keep inheriting the body's light-theme (dark) color and vanish.
-                      // Portaled overlays (mobile sheet, modals) render elsewhere and
-                      // keep their own page-theme styling.
-                      'dark bg-transparent text-foreground'
+                    ? 'dark bg-transparent text-foreground'
                     : 'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'
             }`}
         >

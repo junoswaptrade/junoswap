@@ -26,8 +26,6 @@ export function PortfolioContent() {
     const searchParams = useSearchParams()
     const chainId = useChainId()
 
-    // A trader clicked from the leaderboard/points table arrives with ?address=,
-    // letting the page render any wallet's portfolio, not just the connected one.
     const viewedParam = searchParams.get('address')
     const address = (viewedParam ?? connectedAddress) as `0x${string}` | undefined
     const { nativeUsdPrice, isLoading: isPriceLoading } = useNativeUsdPriceContext()
@@ -72,9 +70,6 @@ export function PortfolioContent() {
 
     const summary = useMemo<Summary>(() => {
         const netWorth = portfolioTokens.reduce((sum, t) => sum + t.valueUsd, 0)
-
-        // Total PnL aggregates every traded token (incl. fully-exited positions),
-        // so realized gains aren't lost when a position no longer shows as a holding.
         const hasPnl = pnlTotals.totalInvestedUsd > 0
         const totalPnl = hasPnl ? pnlTotals.totalPnlUsd : null
         const totalPnlPercent = hasPnl ? pnlTotals.totalPnlPercent : null

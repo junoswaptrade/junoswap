@@ -65,14 +65,7 @@ export function ShareTokenDialog({
     const [copied, setCopied] = useState(false)
     const cardRef = useRef<HTMLDivElement>(null)
     const { downloadImage, isGenerating } = useShareableImage()
-
-    // Inline the remote token logo as a data URL before capture. Otherwise
-    // html-to-image fetches the cross-origin image at capture time, which taints
-    // the canvas in in-app browsers (e.g. MetaMask) and makes toBlob throw — so
-    // the whole save silently fails. A data URL is same-origin and embeds cleanly.
     const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null)
-    // Ready immediately when there's no logo; otherwise gate the save until the
-    // data URL resolves so the capture never snapshots a mid-load fallback.
     const [logoReady, setLogoReady] = useState(!logo)
     useEffect(() => {
         if (!logo) {
@@ -147,8 +140,6 @@ export function ShareTokenDialog({
                         Copy link or share directly to X
                     </p>
                 </DialogHeader>
-
-                {/* Premium token card — captured as image */}
                 <div ref={cardRef} className="overflow-hidden rounded-xl bg-[#0a0e14]">
                     <div
                         className="relative overflow-hidden rounded-xl border border-white/10"
@@ -206,11 +197,6 @@ export function ShareTokenDialog({
                                     <ArrowRight className="h-3 w-3" />
                                 </div>
                             </div>
-
-                            {/* Right — token image. Capture from a plain <img> bound to the
-                                data URL: Radix Avatar gates the <img> behind an async load
-                                state, so html-to-image can snapshot it mid-load and drop the
-                                logo. A data URL on a plain <img> is always present and inlined. */}
                             <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 p-1.5">
                                 {logoDataUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element -- data URL captured by html-to-image; next/image would defeat the purpose

@@ -72,9 +72,6 @@ export function AddLiquidityDialog({
     const [activeInput, setActiveInput] = useState<'token0' | 'token1' | null>(null)
     const [initialPrice, setInitialPrice] = useState('')
 
-    // Seed the form when the dialog opens: from initialPool if provided (opened for a specific
-    // pool), otherwise a clean slate. The usePool + range-reset effects below then populate the
-    // range once pool data loads.
     const wasOpenRef = useRef(false)
     useEffect(() => {
         if (open && !wasOpenRef.current) {
@@ -127,7 +124,6 @@ export function AddLiquidityDialog({
             }
         }
 
-        // No pool: pool creation path requires initial price
         if (!initialSqrtPriceX96) return null
 
         return {
@@ -180,8 +176,6 @@ export function AddLiquidityDialog({
         simulationError,
         hash,
     } = useAddLiquidity(mintParams, needsApprovalCheck)
-    // Reset range when pool changes (or pool loads for first time)
-    // Remove the tickLower===0 guard so stale persisted rangeConfig is always overwritten.
     useEffect(() => {
         if (!pool) return
         const tickSpacing = pool.tickSpacing
@@ -194,7 +188,6 @@ export function AddLiquidityDialog({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pool?.address, pool?.fee])
 
-    // Set full range defaults when creating a new pool (no existing pool)
     useEffect(() => {
         if (!pool && derivedTick !== null && token0 && token1) {
             const tickSpacing = getTickSpacing(fee)
@@ -209,7 +202,6 @@ export function AddLiquidityDialog({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pool, derivedTick, fee, token0?.address, token1?.address])
 
-    // Auto-calculate dependent token amount based on active input (existing pools only)
     useEffect(() => {
         if (!token0 || !token1) return
         if (!pool) return
@@ -220,9 +212,6 @@ export function AddLiquidityDialog({
         const sqrtPriceLowerX96 = tickToSqrtPriceX96(rangeConfig.tickLower)
         const sqrtPriceUpperX96 = tickToSqrtPriceX96(rangeConfig.tickUpper)
 
-        // pool.sqrtPriceX96 is in pool's sorted-address coordinate (pool.token0 < pool.token1).
-        // If store.token0 != pool.token0, the user's token0/token1 are reversed vs the pool.
-        // In that case swap the calculate functions so amounts stay in user's token order.
         const isPoolReversed = token0.address.toLowerCase() !== pool.token0.address.toLowerCase()
 
         if (activeInput === 'token0') {
@@ -285,7 +274,6 @@ export function AddLiquidityDialog({
         rangeConfig.tickUpper,
     ])
 
-    // Auto-derive initial price from amount ratio for new pools
     useEffect(() => {
         if (pool || !token0 || !token1) return
         const a0 = amount0 ? parseFloat(amount0) : 0
@@ -470,9 +458,6 @@ export function AddLiquidityDialog({
                             <RangeSelector
                                 currentTick={(() => {
                                     const rawTick = pool?.tick ?? derivedTick!
-                                    // Pool stores price as token1/token0 by sorted address order.
-                                    // If store.token0 != pool.token0 (reversed), negate the tick
-                                    // so the price displays correctly in the user's chosen direction.
                                     const isPoolReversed =
                                         pool &&
                                         token0.address.toLowerCase() !==

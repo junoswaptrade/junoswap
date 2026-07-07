@@ -89,7 +89,6 @@ export function TokenChart({
     const { data, feeBreakdown, isLoading, timeframe, setTimeframe, chartMode, setChartMode } =
         useTokenPriceHistory(tokenAddr, isGraduated, graduatedAt)
 
-    // Read V3 pool slot0 for live price when graduated
     const { data: slot0 } = useReadContract({
         address: poolAddress,
         abi: UNISWAP_V3_POOL_ABI,
@@ -108,7 +107,6 @@ export function TokenChart({
     const displayData = useMemo(() => {
         let result = data
 
-        // Convert to USD
         if (nativeUsdPrice !== null) {
             result = result.map((d) => ({
                 ...d,
@@ -121,9 +119,7 @@ export function TokenChart({
 
         if (result.length === 0) return result
 
-        // Step 1: Update last trade candle with live spot price
         if (isGraduated && poolAddress && slot0) {
-            // V3 live price from slot0
             const sqrtPriceX96 = (
                 slot0 as [bigint, number, number, number, number, number, boolean]
             )[0]
@@ -152,7 +148,6 @@ export function TokenChart({
             tokenReserve !== undefined &&
             tokenReserve > 0n
         ) {
-            // Bonding curve live price from reserves
             const price =
                 parseFloat(formatEther(virtualAmount + nativeReserve)) /
                 parseFloat(formatEther(tokenReserve))
@@ -172,7 +167,6 @@ export function TokenChart({
             )
         }
 
-        // Step 2: Forward-fill flat candles from last trade candle to current time
         const duration = TIMEFRAME_DURATIONS[timeframe]
         const nowBucket = Math.floor(Math.floor(Date.now() / 1000) / duration) * duration
         const lastCandle = result[result.length - 1]!
@@ -208,7 +202,6 @@ export function TokenChart({
         wrappedNative,
     ])
 
-    // OHLCV overlay - updated via DOM to avoid re-render loops
     const ohlcvRef = useRef<HTMLDivElement>(null)
     const currentOhlcv = useRef<{
         open: number
@@ -254,7 +247,6 @@ export function TokenChart({
             `<span class="font-semibold ${cls(d.change >= 0)}">${d.change >= 0 ? '+' : ''}${d.change.toFixed(2)}%</span>`
     }
 
-    // Initialize chart
     useEffect(() => {
         if (!chartContainerRef.current) return
 
@@ -328,7 +320,6 @@ export function TokenChart({
             scaleMargins: { top: 0.75, bottom: 0 },
         })
 
-        // Subscribe to crosshair move for OHLCV overlay
         const crosshairHandler = (
             param: Parameters<Parameters<typeof chart.subscribeCrosshairMove>[0]>[0]
         ) => {
@@ -360,7 +351,6 @@ export function TokenChart({
         candleSeriesRef.current = candleSeries
         volumeSeriesRef.current = volumeSeries
 
-        // Handle resize
         const resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const { width, height } = entry.contentRect
@@ -380,7 +370,6 @@ export function TokenChart({
         }
     }, [chartColors])
 
-    // Update data
     useEffect(() => {
         if (!candleSeriesRef.current || !volumeSeriesRef.current || displayData.length === 0) return
 
@@ -394,8 +383,6 @@ export function TokenChart({
             },
         })
 
-        // Shift to local wall-clock time, kept strictly ascending so the DST
-        // "fall back" hour can't produce duplicate times and trip lightweight-charts.
         let lastT = -Infinity
         const localTimes = displayData.map((d) => {
             let t = toLocalChartTime(d.time)
@@ -422,7 +409,6 @@ export function TokenChart({
             })) as LWHistogramData<LWTime>[]
         )
 
-        // Update price line
         if (priceLineRef.current) {
             candleSeriesRef.current.removePriceLine(priceLineRef.current)
             priceLineRef.current = null
@@ -435,12 +421,11 @@ export function TokenChart({
                 price: lastCandle.close,
                 color: isUp ? 'rgb(30, 215, 96)' : 'rgb(233, 20, 41)',
                 lineWidth: 1,
-                lineStyle: 2, // dashed
+                lineStyle: 2,
                 axisLabelVisible: true,
                 title: '',
             })
 
-            // Update OHLCV overlay fallback
             const ohlcv = {
                 open: lastCandle.open,
                 high: lastCandle.high,
@@ -529,7 +514,6 @@ export function TokenChart({
             </div>
 
             <div className="relative">
-                {/* OHLCV overlay - updated via DOM to avoid re-render loops */}
                 <div
                     ref={ohlcvRef}
                     style={{ display: 'none' }}

@@ -5,9 +5,6 @@ import { cn } from '@/lib/utils'
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
     ({ className, value, ...props }, ref) => {
         const internalRef = React.useRef<HTMLTextAreaElement | null>(null)
-
-        // Auto-grow to fit content. Watching `value` (not just onChange) keeps the
-        // height in sync with controlled state — including programmatic resets.
         React.useLayoutEffect(() => {
             const el = internalRef.current
             if (!el) return

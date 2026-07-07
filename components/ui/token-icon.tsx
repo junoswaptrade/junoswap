@@ -7,9 +7,6 @@ import { tokenHue } from '@/lib/token-color'
 
 type TokenIconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-// `sizes` reflects the largest rendered width per preset so the Next.js image
-// optimizer generates an appropriately small source (xl cards scale up to 120px
-// via the className override in token-card.tsx).
 const SIZE_MAP: Record<TokenIconSize, { container: string; text: string; sizes: string }> = {
     xs: { container: 'h-5 w-5', text: 'text-[9px]', sizes: '20px' },
     sm: { container: 'h-8 w-8', text: 'text-[10px]', sizes: '32px' },
@@ -26,13 +23,9 @@ function getInitials(symbol: string | null | undefined): string {
 }
 
 export interface TokenIconProps {
-    /** Image URL for the token logo */
     src?: string | null
-    /** Token symbol — used to generate fallback initials */
     symbol?: string | null
-    /** Preset size */
     size?: TokenIconSize
-    /** Shape: circle (default, inline/lists) or square (launchpad cards) */
     variant?: 'circle' | 'square'
     className?: string
 }
@@ -44,7 +37,6 @@ export function TokenIcon({
     variant = 'circle',
     className,
 }: TokenIconProps) {
-    // Keyed remount on src change resets the error state so a new logo gets a fresh try.
     return (
         <TokenIconInner
             key={src ?? ''}
@@ -67,15 +59,10 @@ function TokenIconInner({
     const [errored, setErrored] = useState(false)
     const { container, text, sizes } = SIZE_MAP[size]
     const shape = variant === 'square' ? 'rounded-xl' : 'rounded-full'
-    // Deterministic pastel per symbol: hue flows in via a CSS variable so the
-    // static arbitrary-value classes below can theme the text for light/dark.
     const fallbackStyle = cn(
         text,
         'bg-[hsl(var(--token-hue)_70%_50%/0.15)] text-[hsl(var(--token-hue)_75%_38%)] dark:text-[hsl(var(--token-hue)_70%_68%)] font-semibold'
     )
-
-    // No logo (or a failed load): render the initials badge directly so logo-less or
-    // broken-logo tokens (imported / external V3) always show a legible icon.
     if (!src || errored) {
         return (
             <span
