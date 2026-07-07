@@ -9,7 +9,7 @@ import {
     usePublicClient,
 } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
-import type { Address } from 'viem'
+import { zeroAddress, type Address } from 'viem'
 import { BONDING_CURVE_JUNOSWAP_ABI } from '@/lib/abis/bonding-curve-junoswap'
 import { ERC20_ABI } from '@/lib/abis/erc20'
 import { getAllowanceFunctionName } from '@/lib/tokens'
@@ -68,7 +68,7 @@ export function useBondingCurveSwapExecution({
         address: tokenAddr ?? undefined,
         abi: ERC20_ABI,
         functionName: tokenAddr ? getAllowanceFunctionName(tokenAddr) : 'allowance',
-        args: [address ?? '0x0', bondingCurveAddress ?? '0x0'],
+        args: [address ?? zeroAddress, bondingCurveAddress ?? zeroAddress],
         chainId,
         query: { enabled: !isBuy && !!tokenAddr && !!address && !!bondingCurveAddress },
     })

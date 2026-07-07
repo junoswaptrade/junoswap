@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useEffect, useRef, useState } from 'react'
+import { Fragment, useMemo, useEffect, useRef, useState } from 'react'
 import { useAccount, useChainId } from 'wagmi'
-import { parseUnits, type Address } from 'viem'
+import { parseUnits, zeroAddress, type Address } from 'viem'
 import type { Token } from '@/types/tokens'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { useSwapStore } from '@/store/swap-store'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { useMultiDexQuotes } from '@/hooks/useMultiDexQuotes'
+import { useRoutePriceImpact } from '@/hooks/useRoutePriceImpact'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useUniV3SwapExecution } from '@/hooks/useUniV3SwapExecution'
 import { useUniV2SwapExecution } from '@/hooks/useUniV2SwapExecution'
@@ -23,7 +24,14 @@ import { formatBalance, formatTokenAmount, formatDisplayAmount } from '@/service
 import { ConnectModal } from '@/components/web3/connect-modal'
 import { toastError } from '@/lib/toast'
 import { getDefaultPairTokens } from '@/lib/tokens'
-import { getDexConfig, isV2Config, getDefaultDexForChain, getSupportedDexs } from '@/lib/dex-config'
+import {
+    getDexConfig,
+    isV2Config,
+    getDefaultDexForChain,
+    getSupportedDexs,
+    ProtocolType,
+} from '@/lib/dex-config'
+import type { RouteQuote } from '@/types/routing'
 import { TokenSelect } from './token-select'
 import { SettingsDialog } from './settings-dialog'
 import { ArrowDownUp, ArrowRightLeft, CandlestickChart } from 'lucide-react'
@@ -119,6 +127,32 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         const routesForDex = allRoutes.filter((r) => r.dexId === selectedDex)
         return routesForDex[0] ?? null
     }, [allRoutes, selectedDex])
+    // allRoutes only carries a direct RouteQuote for the primary V2 DEX; when the user (or
+    // auto-select) lands on another DEX we still have its per-DEX quote, so synthesize a direct
+    // route for display + price impact. Execution keeps using selectedDexRoute.
+    const displayRoute = useMemo<RouteQuote | null>(() => {
+        if (selectedDexRoute) return selectedDexRoute
+        if (!selectedDexQuote.quote || !tokenIn || !tokenOut) return null
+        return {
+            route: {
+                path: [tokenIn.address as Address, tokenOut.address as Address],
+                fees: selectedDexQuote.fee ? [selectedDexQuote.fee] : undefined,
+                isMultiHop: false,
+                intermediaryTokens: [],
+            },
+            quote: selectedDexQuote.quote,
+            dexId: selectedDex,
+            protocolType: isV2Protocol ? ProtocolType.V2 : ProtocolType.V3,
+        }
+    }, [
+        selectedDexRoute,
+        selectedDexQuote.quote,
+        selectedDexQuote.fee,
+        tokenIn,
+        tokenOut,
+        selectedDex,
+        isV2Protocol,
+    ])
     const wrapOp = useMemo(() => {
         return getWrapOperation(tokenIn, tokenOut)
     }, [tokenIn, tokenOut])
@@ -130,6 +164,13 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
     const isWrapUnwrap = !!wrapOp
     const wrapOperation = wrapOp
     const fee = quoteFee ?? 3000
+    const { priceImpact } = useRoutePriceImpact({
+        route: displayRoute,
+        tokenIn,
+        tokenOut,
+        amountIn: amountInBigInt,
+        enabled: !isWrapUnwrap,
+    })
     // Track previous values to avoid unnecessary store updates
     const prevQuoteAmountOutRef = useRef<bigint | null>(null)
     const prevIsLoadingRef = useRef<boolean>(false)
@@ -203,7 +244,7 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         tokenOut: tokenOut ?? tokens[1] ?? tokens[0]!,
         amountIn: amountInBigInt,
         amountOutMinimum,
-        recipient: address ?? '0x0',
+        recipient: address ?? zeroAddress,
         slippage: settings.slippage,
         deadlineMinutes: settings.deadlineMinutes,
         fee,
@@ -215,7 +256,7 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         tokenOut: tokenOut ?? tokens[1] ?? tokens[0]!,
         amountIn: amountInBigInt,
         amountOutMinimum,
-        recipient: address ?? '0x0',
+        recipient: address ?? zeroAddress,
         deadlineMinutes: settings.deadlineMinutes,
         route: selectedDexRoute?.route,
         skipSimulation: skipSwapSimulation,
@@ -525,40 +566,67 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
                                                 {(fee / 10000).toFixed(2)}%
                                             </span>
                                         </div>
-                                        {selectedDexRoute &&
-                                            selectedDexRoute.route.isMultiHop &&
-                                            selectedDexRoute.route.intermediaryTokens.length >
-                                                0 && (
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-muted-foreground">
-                                                        Route
+                                        {priceImpact !== undefined && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-muted-foreground">
+                                                    Price Impact
+                                                </span>
+                                                <span
+                                                    className={cn(
+                                                        'font-medium',
+                                                        priceImpact >= 5 && 'text-negative'
+                                                    )}
+                                                >
+                                                    {priceImpact < 0.01
+                                                        ? '<0.01'
+                                                        : priceImpact.toFixed(2)}
+                                                    %
+                                                </span>
+                                            </div>
+                                        )}
+                                        {displayRoute && (
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="text-muted-foreground">Route</span>
+                                                <span className="font-medium flex items-center gap-1 flex-wrap justify-end">
+                                                    <span className="text-xs uppercase">
+                                                        {displayRoute.dexId}
                                                     </span>
-                                                    <span className="font-medium flex items-center gap-1">
-                                                        <span className="text-xs uppercase">
-                                                            {selectedDexRoute.dexId}
-                                                        </span>
-                                                        <span className="text-muted-foreground">
-                                                            •
-                                                        </span>
-                                                        {tokenIn?.symbol}
-                                                        <span className="text-muted-foreground">
-                                                            →
-                                                        </span>
-                                                        {selectedDexRoute.route.intermediaryTokens
-                                                            .map((t) => t.symbol)
-                                                            .join(' → ')}
-                                                        <span className="text-muted-foreground">
-                                                            →
-                                                        </span>
-                                                        {tokenOut?.symbol}
-                                                    </span>
-                                                </div>
-                                            )}
+                                                    <span className="text-muted-foreground">•</span>
+                                                    {tokenIn?.symbol}
+                                                    {displayRoute.route.intermediaryTokens.map(
+                                                        (t) => (
+                                                            <Fragment key={t.address}>
+                                                                <span className="text-muted-foreground">
+                                                                    →
+                                                                </span>
+                                                                {t.symbol}
+                                                            </Fragment>
+                                                        )
+                                                    )}
+                                                    <span className="text-muted-foreground">→</span>
+                                                    {tokenOut?.symbol}
+                                                </span>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </CardContent>
                         </Card>
                     )}
+                    {!isWrapUnwrap &&
+                        !isSameTokenSwap &&
+                        tokenIn &&
+                        tokenOut &&
+                        amountInBigInt > 0n &&
+                        !effectiveQuote &&
+                        !isQuoteLoading && (
+                            <Card className="bg-muted/50 p-1">
+                                <CardContent className="p-3 text-xs text-center text-muted-foreground">
+                                    No route found for {tokenIn.symbol} → {tokenOut.symbol}. Try a
+                                    different amount or token pair.
+                                </CardContent>
+                            </Card>
+                        )}
                     <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                             <SettingsDialog

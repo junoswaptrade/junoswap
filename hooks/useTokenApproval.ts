@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import type { Address } from 'viem'
+import { zeroAddress, type Address } from 'viem'
 import type { Token } from '@/types/tokens'
 import { buildInfiniteApprovalParams, needsApproval } from '@/services/tokens'
 import { getDexConfig, getProtocolSpender } from '@/lib/dex-config'
@@ -45,7 +45,7 @@ export function useTokenApproval({
         address: token?.address as Address,
         abi: ERC20_ABI,
         functionName: token ? getAllowanceFunctionName(token.address) : 'allowance',
-        args: [owner || '0x0', spender || '0x0'],
+        args: [owner ?? zeroAddress, spender ?? zeroAddress],
         chainId: token?.chainId,
         query: {
             enabled: !!token && !!owner && !!spender && !isTokenNative,

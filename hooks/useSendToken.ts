@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import { useWriteContract, useSimulateContract, useSendTransaction, usePublicClient } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
-import type { Address } from 'viem'
+import { zeroAddress, type Address } from 'viem'
 import type { Token } from '@/types/tokens'
 import { ERC20_ABI } from '@/lib/abis/erc20'
 import { isNativeToken } from '@/lib/wagmi'
@@ -48,7 +48,7 @@ export function useSendToken({ token, recipient, amount }: UseSendTokenParams): 
         address: token?.address as Address,
         abi: ERC20_ABI,
         functionName: 'transfer',
-        args: [recipient || '0x0', rawAmount],
+        args: [recipient ?? zeroAddress, rawAmount],
         chainId: token?.chainId,
         query: {
             enabled: !!token && !isNative && !!recipient && rawAmount > 0n,

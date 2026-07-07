@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import type { Address } from 'viem'
+import { zeroAddress } from 'viem'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -143,7 +143,7 @@ export function CreateTokenDialog({ open, onOpenChange }: CreateTokenDialogProps
                 link1: form.link1,
                 link2: form.link2,
                 link3: form.link3,
-                creator: (address ?? '0x0') as Address,
+                creator: address ?? zeroAddress,
                 createdTime: Math.floor(Date.now() / 1000),
                 chainId,
                 graduatedAt: null,

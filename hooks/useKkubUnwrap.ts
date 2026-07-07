@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import type { Address } from 'viem'
-import { maxUint256 } from 'viem'
+import { maxUint256, zeroAddress } from 'viem'
 import { ERC20_ABI } from '@/lib/abis/erc20'
 import { getWrappedNativeAddress } from '@/services/tokens'
 import { shouldSkipUnwrap } from '@/lib/wagmi'
@@ -53,9 +53,7 @@ export function useKkubUnwrap({
         address: kkubAddress!,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: owner
-            ? [owner, KKUB_UNWRAPPER_ADDRESS]
-            : (['0x0' as Address, '0x0' as Address] as const),
+        args: owner ? [owner, KKUB_UNWRAPPER_ADDRESS] : ([zeroAddress, zeroAddress] as const),
         chainId,
         query: {
             enabled: isSkipUnwrap && !!owner && !!kkubAddress && amount > 0n,

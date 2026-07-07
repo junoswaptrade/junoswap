@@ -12,7 +12,7 @@
         "test": "vitest",
         "test:e2e": "playwright test",
         "prepare": "husky",
-        "clean": "rm -rf .next tsconfig.tsbuildinfo"
+        "clean": "rm -rf .next out build tsconfig.tsbuildinfo coverage playwright-report test-results .vercel contracts/cache contracts/out contracts/broadcast indexer/.ponder indexer/generated"
     },
     "dependencies": {
         "@lifi/sdk": "^3.16.3",

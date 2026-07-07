@@ -1,7 +1,7 @@
 'use client'
 
 import { useBalance, useReadContract, useReadContracts, useAccount } from 'wagmi'
-import type { Address } from 'viem'
+import { zeroAddress, type Address } from 'viem'
 import type { Token } from '@/types/tokens'
 import { formatTokenAmount } from '@/services/tokens'
 import { isNativeToken } from '@/lib/wagmi'
@@ -33,7 +33,7 @@ export function useTokenBalance({ token, address }: UseTokenBalanceParams): UseT
         address: token?.address as Address,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
-        args: [address || '0x0'],
+        args: [address ?? zeroAddress],
         chainId: token?.chainId,
         query: {
             enabled: !!address && !!token && !isNative,

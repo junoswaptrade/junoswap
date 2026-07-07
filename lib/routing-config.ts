@@ -95,3 +95,54 @@ export function getIntermediaryTokens(chainId: number): Address[] {
  * E.g., 50 = 0.5% better output required
  */
 export const MIN_MULTIHOP_IMPROVEMENT_BPS = 50
+
+/**
+ * Maximum hops considered when routing (tokenIn + intermediaries + tokenOut).
+ * 3 = up to two intermediaries. Deeper hops only ever go through the curated
+ * connector list, never an arbitrary token graph, to keep on-chain quote calls
+ * bounded (these chains are not archive nodes — see CLAUDE.md).
+ */
+export const MAX_HOPS = 3
+
+/**
+ * Cap on distinct connectors used to build the deeper (3-hop) connector×connector
+ * paths. 2-hop uses every connector (cheap); the 3-hop cross-product is quadratic,
+ * so it is restricted to the top-priority connectors.
+ */
+export const MAX_DEEP_CONNECTORS = 3
+
+/**
+ * Enumerate candidate multi-hop token sequences between two tokens through the
+ * curated connectors. Returns raw address paths [tokenIn, ...connectors, tokenOut];
+ * callers normalize native→wrapped as needed. Connectors equal to tokenIn/tokenOut
+ * are dropped so a "hop" never revisits an endpoint.
+ */
+export function enumerateHopPaths(
+    tokenIn: Address,
+    tokenOut: Address,
+    connectors: Address[],
+    maxHops: number = MAX_HOPS
+): Address[][] {
+    const inL = tokenIn.toLowerCase()
+    const outL = tokenOut.toLowerCase()
+    const conns = connectors.filter((c) => {
+        const l = c.toLowerCase()
+        return l !== inL && l !== outL
+    })
+    const paths: Address[][] = []
+    // 2-hop: tokenIn -> connector -> tokenOut
+    for (const c of conns) {
+        paths.push([tokenIn, c, tokenOut])
+    }
+    // 3-hop: tokenIn -> c1 -> c2 -> tokenOut (distinct connectors, top-priority only)
+    if (maxHops >= 3) {
+        const deep = conns.slice(0, MAX_DEEP_CONNECTORS)
+        for (const c1 of deep) {
+            for (const c2 of deep) {
+                if (c1.toLowerCase() === c2.toLowerCase()) continue
+                paths.push([tokenIn, c1, c2, tokenOut])
+            }
+        }
+    }
+    return paths
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useAccount, useBalance, useChainId, useReadContract, useSwitchChain } from 'wagmi'
-import { parseUnits, formatEther, parseEther } from 'viem'
+import { parseUnits, formatEther, parseEther, zeroAddress } from 'viem'
 import type { Address } from 'viem'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -142,7 +142,7 @@ export function TokenTradeCard({
         address: tokenAddr,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
-        args: [address || '0x0'],
+        args: [address ?? zeroAddress],
         chainId,
         query: { enabled: !!address },
     })
@@ -241,7 +241,7 @@ export function TokenTradeCard({
         tokenOut: launchpadToken,
         amountIn: buyAmountWei,
         amountOutMinimum: v3MinTokenOut,
-        recipient: address ?? '0x0',
+        recipient: address ?? zeroAddress,
         slippage: settings.slippage,
         deadlineMinutes: 20,
         fee: poolFee ?? 10000,
@@ -322,7 +322,7 @@ export function TokenTradeCard({
         tokenOut: nativeToken,
         amountIn: sellAmountWei,
         amountOutMinimum: v3MinNativeOut,
-        recipient: address ?? '0x0',
+        recipient: address ?? zeroAddress,
         slippage: settings.slippage,
         deadlineMinutes: 20,
         fee: poolFee ?? 10000,
