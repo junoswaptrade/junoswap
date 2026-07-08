@@ -16,6 +16,7 @@ import type {
     HistogramData as LWHistogramData,
     Time as LWTime,
 } from 'lightweight-charts'
+import { CreatorMarkerPrimitive, createJazziconAvatar } from '@/lib/creator-marker-primitive'
 import type { Address } from 'viem'
 import { formatEther } from 'viem'
 import { useChartColors, toLocalChartTime } from '@/lib/lightweight-chart-theme'
@@ -25,7 +26,11 @@ import type { ChartMode } from '@/types/chart'
 import { TIMEFRAME_DURATIONS } from '@/types/chart'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
-import { calculatePriceFromSqrtPrice, computeDailyMetrics } from '@/services/chart'
+import {
+    buildCreatorMarkers,
+    calculatePriceFromSqrtPrice,
+    computeDailyMetrics,
+} from '@/services/chart'
 import type { DailyMetrics } from '@/services/chart'
 import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
@@ -41,6 +46,7 @@ interface TokenChartProps {
     isGraduated?: boolean
     poolAddress?: Address
     graduatedAt?: number | null
+    creatorAddress?: Address
     onDailyMetricsChange?: (metrics: DailyMetrics | null) => void
     className?: string
 }
@@ -73,6 +79,7 @@ export function TokenChart({
     isGraduated,
     poolAddress,
     graduatedAt,
+    creatorAddress,
     onDailyMetricsChange,
     className,
 }: TokenChartProps) {
@@ -85,9 +92,19 @@ export function TokenChart({
     const priceLineRef = useRef<ReturnType<ISeriesApi<'Candlestick'>['createPriceLine']> | null>(
         null
     )
+    const markersRef = useRef<CreatorMarkerPrimitive | null>(null)
+    const avatarRef = useRef<HTMLCanvasElement | null>(null)
 
-    const { data, feeBreakdown, isLoading, timeframe, setTimeframe, chartMode, setChartMode } =
-        useTokenPriceHistory(tokenAddr, isGraduated, graduatedAt)
+    const {
+        data,
+        feeBreakdown,
+        creatorTrades,
+        isLoading,
+        timeframe,
+        setTimeframe,
+        chartMode,
+        setChartMode,
+    } = useTokenPriceHistory(tokenAddr, isGraduated, graduatedAt, creatorAddress)
 
     const { data: slot0 } = useReadContract({
         address: poolAddress,
@@ -351,6 +368,11 @@ export function TokenChart({
         candleSeriesRef.current = candleSeries
         volumeSeriesRef.current = volumeSeries
 
+        const markerPrimitive = new CreatorMarkerPrimitive()
+        candleSeries.attachPrimitive(markerPrimitive)
+        markerPrimitive.setAvatar(avatarRef.current)
+        markersRef.current = markerPrimitive
+
         const resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const { width, height } = entry.contentRect
@@ -367,8 +389,26 @@ export function TokenChart({
             candleSeriesRef.current = null
             volumeSeriesRef.current = null
             priceLineRef.current = null
+            markersRef.current = null
         }
     }, [chartColors])
+
+    useEffect(() => {
+        if (!creatorAddress) {
+            avatarRef.current = null
+            markersRef.current?.setAvatar(null)
+            return
+        }
+        let cancelled = false
+        createJazziconAvatar(creatorAddress, 72).then((canvas) => {
+            if (cancelled) return
+            avatarRef.current = canvas
+            markersRef.current?.setAvatar(canvas)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [creatorAddress])
 
     useEffect(() => {
         if (!candleSeriesRef.current || !volumeSeriesRef.current || displayData.length === 0) return
@@ -409,6 +449,22 @@ export function TokenChart({
             })) as LWHistogramData<LWTime>[]
         )
 
+        const bucketToCandle = new Map<number, { chartTime: LWTime; high: number }>()
+        displayData.forEach((d, i) =>
+            bucketToCandle.set(d.time, { chartTime: localTimes[i] as LWTime, high: d.high })
+        )
+        const markerPoints = buildCreatorMarkers(
+            creatorTrades,
+            timeframe,
+            displayData.map((d) => d.time)
+        )
+        markersRef.current?.setMarkers(
+            markerPoints.map((p) => {
+                const candle = bucketToCandle.get(p.time)!
+                return { time: candle.chartTime, high: candle.high, isBuy: p.isBuy }
+            })
+        )
+
         if (priceLineRef.current) {
             candleSeriesRef.current.removePriceLine(priceLineRef.current)
             priceLineRef.current = null
@@ -446,7 +502,16 @@ export function TokenChart({
         onDailyMetricsChange?.(metrics ? { ...metrics, feeBreakdown } : null)
 
         chartRef.current?.timeScale().fitContent()
-    }, [displayData, chartMode, nativeUsdPrice, chartColors, onDailyMetricsChange, feeBreakdown])
+    }, [
+        displayData,
+        chartMode,
+        nativeUsdPrice,
+        chartColors,
+        onDailyMetricsChange,
+        feeBreakdown,
+        creatorTrades,
+        timeframe,
+    ])
 
     return (
         <div className={cn('relative rounded-lg border border-border/60 bg-card', className)}>

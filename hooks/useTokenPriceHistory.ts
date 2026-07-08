@@ -10,14 +10,12 @@ import {
     aggregateCandlesticks,
     aggregateV3Candlesticks,
     computeFeeBreakdown,
+    extractCreatorTrades,
     stitchCandlesticks,
 } from '@/services/chart'
 import type { V3SwapEvent } from '@/services/chart'
 import type { Timeframe, ChartMode } from '@/types/chart'
 
-// Page through the full event history: Ponder caps a list response at 50 items
-// without an explicit limit, which would truncate the chart to a token's first
-// 50 swaps and forward-fill a flat line for the rest of its life.
 const PAGE_SIZE = 1000
 
 const TOKEN_PRICE_HISTORY_QUERY = `
@@ -31,6 +29,7 @@ const TOKEN_PRICE_HISTORY_QUERY = `
         amountOut
         reserveIn
         reserveOut
+        sender
       }
     }
   }
@@ -46,6 +45,8 @@ const V3_SWAP_EVENTS_QUERY = `
         amount1
         sqrtPriceX96
         tick
+        txFrom
+        tokenIsToken0
       }
     }
   }
@@ -66,6 +67,7 @@ interface PriceHistoryResponse {
             amountOut: string
             reserveIn: string
             reserveOut: string
+            sender: string
         }>
     }
 }
@@ -79,12 +81,12 @@ interface V3PriceHistoryResponse {
             amount1: string
             sqrtPriceX96: string
             tick: number
+            txFrom: string
+            tokenIsToken0: number
         }>
     }
 }
 
-// Walk every page via opaque cursor; the cursor must be pageInfo.endCursor (a raw
-// row id is rejected server-side).
 async function fetchAllPages<TResponse, TItem>(
     query: string,
     variables: Record<string, unknown>,
@@ -107,7 +109,8 @@ export const TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1d']
 export function useTokenPriceHistory(
     tokenAddr: Address | undefined,
     isGraduated?: boolean,
-    graduatedAt?: number | null
+    graduatedAt?: number | null,
+    creatorAddress?: Address
 ) {
     const [timeframe, setTimeframe] = useState<Timeframe>('15m')
     const [chartMode, setChartMode] = useState<ChartMode>('mcap')
@@ -118,7 +121,6 @@ export function useTokenPriceHistory(
         ? tokenAddr.toLowerCase() < (wrappedNative?.toLowerCase() ?? '')
         : false
 
-    // Bonding curve events (always fetched)
     const {
         data: rawEvents,
         isLoading: isLoadingBc,
@@ -144,6 +146,7 @@ export function useTokenPriceHistory(
                 amountOut: BigInt(e.amountOut),
                 reserveIn: BigInt(e.reserveIn),
                 reserveOut: BigInt(e.reserveOut),
+                sender: e.sender,
             }))
         },
         enabled: !!tokenAddr,
@@ -151,7 +154,6 @@ export function useTokenPriceHistory(
         refetchInterval: 30_000,
     })
 
-    // V3 events (only fetched when graduated)
     const { data: rawV3Events, isLoading: isLoadingV3 } = useQuery({
         queryKey: ['token-v3-price-history', tokenAddr?.toLowerCase(), chainId],
         queryFn: async () => {
@@ -176,6 +178,8 @@ export function useTokenPriceHistory(
                     amount1: e.amount1,
                     sqrtPriceX96: e.sqrtPriceX96,
                     tick: e.tick,
+                    txFrom: e.txFrom,
+                    tokenIsToken0: e.tokenIsToken0,
                 }))
             } catch {
                 return []
@@ -202,12 +206,25 @@ export function useTokenPriceHistory(
         return bcCandles
     }, [rawEvents, rawV3Events, timeframe, chartMode, isGraduated, tokenIsToken0, graduatedAt])
 
-    // Bonding-curve fees only — post-graduation V3 pool fees go to LPs, not the launchpad.
     const feeBreakdown = useMemo(() => computeFeeBreakdown(rawEvents ?? []), [rawEvents])
+
+    const creatorTrades = useMemo(
+        () =>
+            creatorAddress
+                ? extractCreatorTrades(
+                      rawEvents ?? [],
+                      rawV3Events ?? [],
+                      creatorAddress,
+                      graduatedAt ?? null
+                  )
+                : [],
+        [rawEvents, rawV3Events, creatorAddress, graduatedAt]
+    )
 
     return {
         data,
         feeBreakdown,
+        creatorTrades,
         isLoading: isLoadingBc || (isGraduated && isLoadingV3),
         timeframe,
         setTimeframe,

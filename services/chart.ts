@@ -3,7 +3,7 @@ import type { Timeframe, ChartMode, CandlestickData } from '@/types/chart'
 import { TIMEFRAME_DURATIONS } from '@/types/chart'
 import { PUMP_FEE_BPS } from '@/services/launchpad'
 
-const TOTAL_SUPPLY = 1_000_000_000 // 1 billion tokens
+const TOTAL_SUPPLY = 1_000_000_000
 const VIRTUAL_AMOUNT = 3400n * 10n ** 18n
 const Q96 = 2n ** 96n
 
@@ -14,6 +14,7 @@ export interface SwapEvent {
     amountOut: bigint
     reserveIn: bigint
     reserveOut: bigint
+    sender?: string
 }
 
 function calculateMarketCapValue(event: SwapEvent): number {
@@ -47,7 +48,6 @@ function calculatePreSwapPrice(event: SwapEvent): number {
 }
 
 function calculateVolume(event: SwapEvent): number {
-    // Volume in KUB
     return event.isBuy
         ? parseFloat(formatEther(event.amountIn))
         : parseFloat(formatEther(event.amountOut))
@@ -91,7 +91,6 @@ export function aggregateCandlesticks(
         }
     }
 
-    // Forward-fill missing time buckets for continuous candles
     const times = Array.from(candles.keys()).sort((a, b) => a - b)
     if (times.length === 0) return Array.from(candles.values())
     const firstTime = times[0]!
@@ -120,13 +119,6 @@ export interface PricePoint {
     price: number
 }
 
-/**
- * Bucket spot-price points (e.g. native→USD snapshots) into sparse per-bucket OHLC:
- * open = first point in the bucket, close = last, high/low = extremes. Input must be
- * sorted ascending by timestamp. Price-only series, so candle volume is 0. No gap fill
- * or continuity here — pass the result through buildContinuousSeries for a render-ready
- * (connected, windowed) series.
- */
 export function aggregatePricePoints(
     points: PricePoint[],
     timeframe: Timeframe
@@ -159,16 +151,6 @@ export function aggregatePricePoints(
     return Array.from(candles.values()).sort((a, b) => a.time - b.time)
 }
 
-/**
- * Turn sparse per-bucket candles into a continuous, render-ready series:
- *  - snaps each candle's open to the previous candle's close so bodies connect
- *    (no vertical jumps between candles),
- *  - flat-fills every missing time bucket at the prior close (no time holes),
- *  - extends flat from the last bucket to the current bucket (live right edge),
- *  - caps to the most recent `maxCandles` buckets, so a year of history at a fine
- *    timeframe can't expand into hundreds of thousands of candles.
- * Input must be sorted ascending by time.
- */
 export function buildContinuousSeries(
     candles: CandlestickData[],
     timeframe: Timeframe,
@@ -187,9 +169,6 @@ export function buildContinuousSeries(
     const endTime = Math.max(lastBucket, nowBucket)
     const startTime = Math.max(firstBucket, endTime - (maxCandles - 1) * duration)
 
-    // Seed prevClose from the last real candle strictly before the window so the first
-    // emitted candle connects to prior (off-screen) price; if the window starts at the
-    // first candle, open it at its own price.
     let prevClose: number | undefined
     for (const c of candles) {
         if (c.time < startTime) prevClose = c.close
@@ -226,10 +205,6 @@ export function buildContinuousSeries(
     return result
 }
 
-// lightweight-charts rejects values outside ±~9.007e13. A V3 swap at a price-boundary
-// sqrtPrice (or a degenerate/misattributed pool) can yield an absurd price (~2^128),
-// which would throw when fed to the candlestick series. Drop candles whose OHLC falls
-// outside a safe range and zero out a stray volume so one bad event can't crash the chart.
 export const SAFE_CANDLE_VALUE_MAX = 9_000_000_000_000
 
 export function sanitizeCandles(candles: CandlestickData[]): CandlestickData[] {
@@ -245,6 +220,8 @@ export interface V3SwapEvent {
     amount1: string
     sqrtPriceX96: string
     tick: number
+    txFrom?: string
+    tokenIsToken0?: number
 }
 
 export function calculatePriceFromSqrtPrice(sqrtPriceX96: bigint, tokenIsToken0: boolean): number {
@@ -306,7 +283,6 @@ export function aggregateV3Candlesticks(
         }
     }
 
-    // Forward-fill missing time buckets
     const times = Array.from(candles.keys()).sort((a, b) => a - b)
     if (times.length === 0) return Array.from(candles.values())
     const firstTime = times[0]!
@@ -330,11 +306,6 @@ export function aggregateV3Candlesticks(
     return Array.from(candles.values()).sort((a, b) => a.time - b.time)
 }
 
-/**
- * Continuous "native per token" candle series for a non-native token from its V3 swaps.
- * aggregateV3Candlesticks returns a raw smallest-unit ratio; rescale by the token/native
- * decimal difference so non-18-decimal tokens aren't off by 10^n, then make it render-ready.
- */
 export function tokenNativeCandles(
     events: V3SwapEvent[],
     tokenAddr: string,
@@ -359,12 +330,6 @@ export function tokenNativeCandles(
     return buildContinuousSeries(sanitizeCandles(scaled), timeframe)
 }
 
-/**
- * Pair price from two "native per token" series: base / quote, inner-joined by bucket
- * time. high/low use the cross extremes (baseHigh/quoteLow, baseLow/quoteHigh). Buckets
- * absent from quote, or with a non-positive quote value, are skipped. Run the result
- * through sanitizeCandles + buildContinuousSeries before charting.
- */
 export function ratioCandles(base: CandlestickData[], quote: CandlestickData[]): CandlestickData[] {
     const q = new Map(quote.map((c) => [c.time, c]))
     const out: CandlestickData[] = []
@@ -404,20 +369,79 @@ export function stitchCandlesticks(
     return [...preGrad, ...postGrad]
 }
 
+export interface CreatorTrade {
+    timestamp: number
+    isBuy: boolean
+}
+
+export interface CreatorMarkerPoint {
+    time: number // candle bucket time (pre-toLocalChartTime)
+    isBuy: boolean
+}
+
+export function extractCreatorTrades(
+    bcEvents: Array<Pick<SwapEvent, 'timestamp' | 'isBuy' | 'sender'>>,
+    v3Events: Array<
+        Pick<V3SwapEvent, 'timestamp' | 'amount0' | 'amount1' | 'txFrom' | 'tokenIsToken0'>
+    >,
+    creator: string,
+    graduatedAt: number | null
+): CreatorTrade[] {
+    const target = creator.toLowerCase()
+    const splitAt = graduatedAt !== null && v3Events.length > 0 ? graduatedAt : null
+
+    const trades: CreatorTrade[] = []
+    for (const e of bcEvents) {
+        if (e.sender?.toLowerCase() !== target) continue
+        if (splitAt !== null && e.timestamp >= splitAt) continue
+        trades.push({ timestamp: e.timestamp, isBuy: e.isBuy })
+    }
+    if (splitAt !== null) {
+        for (const e of v3Events) {
+            if (e.txFrom?.toLowerCase() !== target) continue
+            if (e.timestamp < splitAt) continue
+            const tokenAmount = BigInt(e.tokenIsToken0 === 1 ? e.amount0 : e.amount1)
+            trades.push({ timestamp: e.timestamp, isBuy: tokenAmount < 0n })
+        }
+    }
+    return trades.sort((a, b) => a.timestamp - b.timestamp)
+}
+
+export function buildCreatorMarkers(
+    trades: CreatorTrade[],
+    timeframe: Timeframe,
+    candleTimes: number[]
+): CreatorMarkerPoint[] {
+    if (trades.length === 0) return []
+
+    const duration = TIMEFRAME_DURATIONS[timeframe]
+    const rendered = new Set(candleTimes)
+    const buckets = new Map<number, { hasBuy: boolean; hasSell: boolean }>()
+
+    for (const trade of trades) {
+        const bucket = Math.floor(trade.timestamp / duration) * duration
+        if (!rendered.has(bucket)) continue
+        const b = buckets.get(bucket) ?? { hasBuy: false, hasSell: false }
+        if (trade.isBuy) b.hasBuy = true
+        else b.hasSell = true
+        buckets.set(bucket, b)
+    }
+
+    const points: CreatorMarkerPoint[] = []
+    for (const time of Array.from(buckets.keys()).sort((a, b) => a - b)) {
+        const b = buckets.get(time)!
+        if (b.hasBuy) points.push({ time, isBuy: true })
+        if (b.hasSell) points.push({ time, isBuy: false })
+    }
+    return points
+}
+
 export interface FeeBreakdown {
     nativeFees: number // KUB collected from buy-side fees
     tokenFees: number // launch tokens collected from sell-side fees
     totalNative: number // KUB-denominated combined total (sell fees valued at the KUB received)
 }
 
-/**
- * Launchpad fee revenue, per asset. Only the bonding curve earns the launchpad
- * this fee — post-graduation V3 pool fees accrue to the pool's LPs, not the
- * launchpad — so this sums bonding-curve events only. The 1% fee is taken on
- * the input side: buys pay in native, sells pay in the launch token. totalNative
- * combines both in KUB terms, valuing a sell's fee at 1% of the KUB the seller
- * received (an approximation, since the fee is actually taken token-side).
- */
 export function computeFeeBreakdown(events: SwapEvent[]): FeeBreakdown {
     const feeRate = Number(PUMP_FEE_BPS) / 10000
     let nativeFees = 0

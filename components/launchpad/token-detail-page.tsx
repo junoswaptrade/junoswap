@@ -195,6 +195,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                         isGraduated={isGraduated}
                         poolAddress={poolAddress}
                         graduatedAt={tokenInfo?.graduatedAt ?? null}
+                        creatorAddress={tokenInfo?.creator}
                         onDailyMetricsChange={setDailyMetrics}
                     />
 

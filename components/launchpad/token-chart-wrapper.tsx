@@ -26,6 +26,7 @@ interface TokenChartWrapperProps {
     isGraduated?: boolean
     poolAddress?: Address
     graduatedAt?: number | null
+    creatorAddress?: Address
     onDailyMetricsChange?: (metrics: DailyMetrics | null) => void
     className?: string
 }
