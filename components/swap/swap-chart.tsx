@@ -193,7 +193,16 @@ export function SwapChart({ tokenIn, tokenOut, className }: SwapChartProps) {
                 : []
         )
 
-        chartRef.current?.timeScale().fitContent()
+        const VISIBLE_CANDLES = 60
+        const len = candles.length
+        if (len > VISIBLE_CANDLES) {
+            chartRef.current?.timeScale().setVisibleLogicalRange({
+                from: len - VISIBLE_CANDLES,
+                to: len + 2, // small right gap, matches the timeScale rightOffset: 5
+            })
+        } else {
+            chartRef.current?.timeScale().fitContent() // few candles → just fit them all
+        }
     }, [candles, prefix, hasVolume, chartColors])
 
     return (

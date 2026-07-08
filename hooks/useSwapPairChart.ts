@@ -97,7 +97,7 @@ export function useSwapPairChart(
     tokenOut: Token | null | undefined
 ): SwapPairChart {
     const chainId = useChainId()
-    const [timeframe, setTimeframe] = useState<Timeframe>('15m')
+    const [timeframe, setTimeframe] = useState<Timeframe>('1d')
     const wrappedNative = INTERMEDIARY_TOKENS[chainId]?.wrappedNative
 
     const classification = useMemo(
