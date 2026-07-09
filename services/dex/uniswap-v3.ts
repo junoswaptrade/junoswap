@@ -3,17 +3,9 @@ import type { SwapParams } from '@/types/swap'
 import { DEFAULT_FEE_TIER } from '@/lib/dex-config'
 import { getSwapAddress } from '@/services/tokens'
 import { UNISWAP_V3_SWAP_ROUTER_ABI } from '@/lib/abis/uniswap-v3-swap-router'
-import { UNISWAP_V3_SWAP_ROUTER_V1_ABI } from '@/lib/abis/uniswap-v3-swap-router-v1'
 
-/**
- * Uniswap V3 Router uses address(2) as ADDRESS_THIS placeholder for multicall
- * When used as recipient, tells the router to keep tokens in itself for subsequent operations
- */
 const ADDRESS_THIS = '0x0000000000000000000000000000000000000002' as Address
 
-/**
- * Returns QuoterV2 read params; call from a hook via useReadContract (it does not fetch).
- */
 export function buildQuoteParams(
     tokenIn: Address,
     tokenOut: Address,
@@ -46,7 +38,6 @@ export function buildSwapParams(
     }
 }
 
-/** slippageBasisPoints is in basis points (100 = 1%). */
 export function calculateMinOutput(amountOut: bigint, slippageBasisPoints: number): bigint {
     const slippageMultiplier = BigInt(10000 - slippageBasisPoints)
     return (amountOut * slippageMultiplier) / 10000n
@@ -84,7 +75,6 @@ export function buildMulticallSwapToNative(
     const tokenIn = getSwapAddress(params.tokenIn, chainId)
     const tokenOut = getSwapAddress(params.tokenOut, chainId)
 
-    // Step 1: exactInputSingle with recipient = ADDRESS_THIS (router holds wrapped token)
     const swapCall = encodeExactInputSingle({
         tokenIn,
         tokenOut,
@@ -95,17 +85,11 @@ export function buildMulticallSwapToNative(
         sqrtPriceLimitX96: 0n,
     })
 
-    // Step 2: unwrapWETH9 to send native token to actual recipient
     const unwrapCall = encodeUnwrapWETH9(params.amountOutMinimum, params.recipient)
 
     return [swapCall, unwrapCall]
 }
 
-/**
- * Encode a multi-hop path for V3 exactInput/exactOutput.
- * Path format: token (20 bytes) + fee (3 bytes) + token (20 bytes) + fee (3 bytes) + … + token.
- * `fees` length must be `tokens.length - 1`.
- */
 export function encodeV3Path(tokens: Address[], fees: number[]): Hex {
     if (tokens.length < 2) throw new Error('Path must have at least 2 tokens')
     if (fees.length !== tokens.length - 1) throw new Error('Fees length must be tokens.length - 1')
@@ -169,128 +153,9 @@ export function buildMulticallMultiHopSwapToNative(
 ): Hex[] {
     const swapTokens = tokens.map((t) => getSwapAddress(t, chainId))
 
-    // Step 1: exactInput with recipient = ADDRESS_THIS
     const swapCall = encodeExactInput({
         path: encodeV3Path(swapTokens, fees),
         recipient: ADDRESS_THIS,
-        amountIn,
-        amountOutMinimum,
-    })
-
-    // Step 2: unwrapWETH9 to send native token to actual recipient
-    const unwrapCall = encodeUnwrapWETH9(amountOutMinimum, recipient)
-
-    return [swapCall, unwrapCall]
-}
-
-// SwapRouter V1 = the original Uniswap V3 router; these variants carry the extra deadline param.
-export function buildSwapParamsV1(
-    params: SwapParams,
-    fee: number = DEFAULT_FEE_TIER,
-    chainId?: number
-) {
-    return {
-        tokenIn: chainId ? getSwapAddress(params.tokenIn, chainId) : params.tokenIn,
-        tokenOut: chainId ? getSwapAddress(params.tokenOut, chainId) : params.tokenOut,
-        fee,
-        recipient: params.recipient,
-        deadline: BigInt(params.deadline),
-        amountIn: params.amountIn,
-        amountOutMinimum: params.amountOutMinimum,
-        sqrtPriceLimitX96: 0n,
-    }
-}
-
-function encodeExactInputSingleV1(params: {
-    tokenIn: Address
-    tokenOut: Address
-    fee: number
-    recipient: Address
-    deadline: bigint
-    amountIn: bigint
-    amountOutMinimum: bigint
-    sqrtPriceLimitX96: bigint
-}): Hex {
-    return encodeFunctionData({
-        abi: UNISWAP_V3_SWAP_ROUTER_V1_ABI,
-        functionName: 'exactInputSingle',
-        args: [params],
-    })
-}
-
-function encodeExactInputV1(params: {
-    path: Hex
-    recipient: Address
-    deadline: bigint
-    amountIn: bigint
-    amountOutMinimum: bigint
-}): Hex {
-    return encodeFunctionData({
-        abi: UNISWAP_V3_SWAP_ROUTER_V1_ABI,
-        functionName: 'exactInput',
-        args: [params],
-    })
-}
-
-export function buildMultiHopSwapParamsV1(
-    tokens: Address[],
-    fees: number[],
-    amountIn: bigint,
-    amountOutMinimum: bigint,
-    recipient: Address,
-    chainId: number,
-    deadline: bigint
-) {
-    const swapTokens = tokens.map((t) => getSwapAddress(t, chainId))
-    return {
-        path: encodeV3Path(swapTokens, fees),
-        recipient,
-        deadline,
-        amountIn,
-        amountOutMinimum,
-    }
-}
-
-export function buildMulticallSwapToNativeV1(
-    params: SwapParams,
-    fee: number,
-    chainId: number,
-    deadline: bigint
-): Hex[] {
-    const tokenIn = getSwapAddress(params.tokenIn, chainId)
-    const tokenOut = getSwapAddress(params.tokenOut, chainId)
-
-    const swapCall = encodeExactInputSingleV1({
-        tokenIn,
-        tokenOut,
-        fee,
-        recipient: ADDRESS_THIS,
-        deadline,
-        amountIn: params.amountIn,
-        amountOutMinimum: params.amountOutMinimum,
-        sqrtPriceLimitX96: 0n,
-    })
-
-    const unwrapCall = encodeUnwrapWETH9(params.amountOutMinimum, params.recipient)
-
-    return [swapCall, unwrapCall]
-}
-
-export function buildMulticallMultiHopSwapToNativeV1(
-    tokens: Address[],
-    fees: number[],
-    amountIn: bigint,
-    amountOutMinimum: bigint,
-    recipient: Address,
-    chainId: number,
-    deadline: bigint
-): Hex[] {
-    const swapTokens = tokens.map((t) => getSwapAddress(t, chainId))
-
-    const swapCall = encodeExactInputV1({
-        path: encodeV3Path(swapTokens, fees),
-        recipient: ADDRESS_THIS,
-        deadline,
         amountIn,
         amountOutMinimum,
     })

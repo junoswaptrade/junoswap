@@ -145,11 +145,10 @@
                     "enabled": true,
                     "factory": "0xD679d310008A2595B8d3DeB83bb93EB23F9b0942",
                     "quoter": "0x63661462C66f13eD121f394Dc57726c1c33672de",
-                    "swapRouter": "0x6A37687F06780ee8B1b8634b7f7c053cCc58672a",
+                    "swapRouter": "0xe81f80172c88Df5D12b3Ab5FE5D1D8Eb7087823f",
                     "positionManager": "0xA8fa5d2774f850Fba2bC572e38b1dB340233e837",
                     "feeTiers": [100, 500, 3000, 10000],
-                    "defaultFeeTier": 500,
-                    "routerVersion": "v1"
+                    "defaultFeeTier": 500
                 }
             }
         }

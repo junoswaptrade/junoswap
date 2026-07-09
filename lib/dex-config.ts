@@ -30,7 +30,6 @@ interface V3Config extends BaseProtocolConfig {
     staker?: Address // V3 Staker contract for LP mining
     feeTiers?: number[]
     defaultFeeTier?: number
-    routerVersion?: 'v1' | 'v2' // v1 = original SwapRouter (has deadline param), v2 = SwapRouter02 (no deadline)
 }
 
 type ProtocolConfig = V2Config | V3Config
@@ -49,9 +48,6 @@ export const FEE_TIERS = {
     HIGH: 10000, // 1%
 } as const
 
-// dex-config.json is keyed by chain slug so lib/wagmi.ts stays the source of truth for chain ids;
-// the loader maps slug -> id and injects chainId + protocolType (both dropped from the JSON as redundant).
-// Fee tiers are bare numbers in the JSON; note pancakeswap uses 2500 (0.25%) for MEDIUM, unlike Uniswap's 3000.
 const CHAIN_ID_BY_SLUG: Record<string, number> = {
     kubTestnet: kubTestnet.id,
     jbc: jbc.id,
@@ -200,12 +196,6 @@ export function getProtocolSpender(config: ProtocolConfig): Address | undefined 
         default:
             return undefined
     }
-}
-
-/** Defaults to v2 (SwapRouter02, no deadline) when routerVersion is unspecified. */
-export function isRouterV1(chainId: number, dexId?: DEXType): boolean {
-    const config = getV3Config(chainId, dexId)
-    return config?.routerVersion === 'v1'
 }
 
 export const DEFAULT_FEE_TIER = FEE_TIERS.MEDIUM

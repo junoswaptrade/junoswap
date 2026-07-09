@@ -10,19 +10,14 @@ import {
 import { encodeFunctionData, type Address, type Hex } from 'viem'
 import type { Token } from '@/types/tokens'
 import type { SwapParams, SwapResult } from '@/types/swap'
-import { getV3Config, isRouterV1 } from '@/lib/dex-config'
+import { getV3Config } from '@/lib/dex-config'
 import { useSwapStore } from '@/store/swap-store'
 import { UNISWAP_V3_SWAP_ROUTER_ABI } from '@/lib/abis/uniswap-v3-swap-router'
-import { UNISWAP_V3_SWAP_ROUTER_V1_ABI } from '@/lib/abis/uniswap-v3-swap-router-v1'
 import {
     buildSwapParams,
     buildMulticallSwapToNative,
     buildMultiHopSwapParams,
     buildMulticallMultiHopSwapToNative,
-    buildSwapParamsV1,
-    buildMulticallSwapToNativeV1,
-    buildMultiHopSwapParamsV1,
-    buildMulticallMultiHopSwapToNativeV1,
 } from '@/services/dex/uniswap-v3'
 import type { SwapRoute } from '@/types/routing'
 import type { DEXType } from '@/types/dex'
@@ -81,8 +76,7 @@ export function useUniV3SwapExecution({
     const referrer = useReferrer()
     const activeDex = dexId ?? selectedDex
     const dexConfig = getV3Config(tokenIn.chainId, activeDex)
-    const routerIsV1 = isRouterV1(tokenIn.chainId, activeDex)
-    const routerAbi = routerIsV1 ? UNISWAP_V3_SWAP_ROUTER_V1_ABI : UNISWAP_V3_SWAP_ROUTER_ABI
+    const routerAbi = UNISWAP_V3_SWAP_ROUTER_ABI
     const wrapOperation = useMemo(() => {
         return getWrapOperation(tokenIn, tokenOut)
     }, [tokenIn, tokenOut])
@@ -123,52 +117,31 @@ export function useUniV3SwapExecution({
         }
 
         const txValue = isNativeInput ? amountIn : undefined
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineMinutes * 60)
 
         if (route?.isMultiHop && route.path.length > 2 && route.fees) {
             if (isNativeOutput && !skipUnwrap) {
-                const multicallData = routerIsV1
-                    ? buildMulticallMultiHopSwapToNativeV1(
-                          route.path,
-                          route.fees,
-                          amountIn,
-                          amountOutMinimum,
-                          recipient,
-                          tokenIn.chainId,
-                          deadline
-                      )
-                    : buildMulticallMultiHopSwapToNative(
-                          route.path,
-                          route.fees,
-                          amountIn,
-                          amountOutMinimum,
-                          recipient,
-                          tokenIn.chainId
-                      )
+                const multicallData = buildMulticallMultiHopSwapToNative(
+                    route.path,
+                    route.fees,
+                    amountIn,
+                    amountOutMinimum,
+                    recipient,
+                    tokenIn.chainId
+                )
                 return {
                     functionName: 'multicall' as const,
                     args: [multicallData] as [Hex[]],
                     value: txValue,
                 }
             } else {
-                const params = routerIsV1
-                    ? buildMultiHopSwapParamsV1(
-                          route.path,
-                          route.fees,
-                          amountIn,
-                          amountOutMinimum,
-                          recipient,
-                          tokenIn.chainId,
-                          deadline
-                      )
-                    : buildMultiHopSwapParams(
-                          route.path,
-                          route.fees,
-                          amountIn,
-                          amountOutMinimum,
-                          recipient,
-                          tokenIn.chainId
-                      )
+                const params = buildMultiHopSwapParams(
+                    route.path,
+                    route.fees,
+                    amountIn,
+                    amountOutMinimum,
+                    recipient,
+                    tokenIn.chainId
+                )
                 return {
                     functionName: 'exactInput' as const,
                     args: [params] as const,
@@ -177,18 +150,14 @@ export function useUniV3SwapExecution({
             }
         }
         if (isNativeOutput && !skipUnwrap) {
-            const multicallData = routerIsV1
-                ? buildMulticallSwapToNativeV1(swapParams, fee, tokenIn.chainId, deadline)
-                : buildMulticallSwapToNative(swapParams, fee, tokenIn.chainId)
+            const multicallData = buildMulticallSwapToNative(swapParams, fee, tokenIn.chainId)
             return {
                 functionName: 'multicall' as const,
                 args: [multicallData] as [Hex[]],
                 value: txValue,
             }
         } else {
-            const params = routerIsV1
-                ? buildSwapParamsV1(swapParams, fee, tokenIn.chainId)
-                : buildSwapParams(swapParams, fee, tokenIn.chainId)
+            const params = buildSwapParams(swapParams, fee, tokenIn.chainId)
             return {
                 functionName: 'exactInputSingle' as const,
                 args: [params] as const,
