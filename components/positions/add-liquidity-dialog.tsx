@@ -402,6 +402,7 @@ export function AddLiquidityDialog({
                                 <TokenSelect
                                     token={token0}
                                     tokens={allTokens}
+                                    disabledToken={token1}
                                     onSelect={setToken0}
                                     className="w-full h-11 rounded-xl bg-muted/40 border-border/40 hover:bg-muted/60 justify-between pr-3"
                                 />
@@ -417,6 +418,7 @@ export function AddLiquidityDialog({
                                 <TokenSelect
                                     token={token1}
                                     tokens={allTokens}
+                                    disabledToken={token0}
                                     onSelect={setToken1}
                                     className="w-full h-11 rounded-xl bg-muted/40 border-border/40 hover:bg-muted/60 justify-between pr-3"
                                 />

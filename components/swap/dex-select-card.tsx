@@ -1,24 +1,24 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useChainId } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
-import { Card, CardContent } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { parseUnits } from 'viem'
 import { useSwapStore } from '@/store/swap-store'
 import { useMultiDexQuotes } from '@/hooks/useMultiDexQuotes'
 import { DEX_REGISTRY } from '@/types/dex'
 import { getSupportedDexs } from '@/lib/dex-config'
 import { percentDiff } from '@/lib/routing-config'
-import { Switch } from '@/components/ui/switch'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { formatDisplayAmount } from '@/services/tokens'
+import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
-const BEST_QUOTE_CLASS =
-    'font-bold bg-gradient-to-r from-primary to-[#FF914D] bg-clip-text text-transparent'
+const BEST_TAG = (
+    <span className="shrink-0 rounded bg-positive/10 px-1.5 py-px text-[11px] font-medium leading-4 text-positive">
+        Best
+    </span>
+)
 
 export function DexSelectCard() {
-    const [expanded, setExpanded] = useState(false)
     const {
         selectedDex,
         setSelectedDex,
@@ -47,7 +47,6 @@ export function DexSelectCard() {
         enabled: !!tokenIn && !!tokenOut && amountInBigInt > 0n,
     })
     const aggActive = aggRouteKind !== null && aggPredictedOut !== null
-    const aggLabel = aggActive ? 'Junoswap Aggregator' : null
     useEffect(() => {
         if (settings?.autoSelectBestDex && bestQuoteDex && bestQuoteDex !== selectedDex) {
             setSelectedDex(bestQuoteDex)
@@ -56,156 +55,119 @@ export function DexSelectCard() {
     const availableDexs = Object.values(DEX_REGISTRY).filter((dex) =>
         supportedDexs.includes(dex.id)
     )
-    const selectedDexInfo = DEX_REGISTRY[selectedDex]
-    if (!selectedDexInfo) {
+    if (!DEX_REGISTRY[selectedDex]) {
         return null
     }
-    const toggleExpanded = () => setExpanded(!expanded)
-    const renderQuoteInfo = (dexId: string) => {
+    const renderQuote = (dexId: string) => {
         const quoteData = dexQuotes[dexId]
-        if (!quoteData) return null
+        if (!quoteData) {
+            return <span className="text-xs text-muted-foreground/40">—</span>
+        }
         if (quoteData.isLoading) {
-            return <span className="text-xs text-muted-foreground">Loading...</span>
+            return <span className="animate-pulse text-xs text-muted-foreground/50">···</span>
         }
-        if (quoteData.isError) {
-            return <span className="text-xs text-muted-foreground">No quote</span>
+        if (quoteData.isError || !quoteData.quote || !tokenOut) {
+            return <span className="text-xs text-muted-foreground/50">No quote</span>
         }
-        if (quoteData.quote && tokenOut) {
-            const amountOut = formatUnits(quoteData.quote.amountOut, tokenOut.decimals)
-            const isBest = !aggActive && bestQuoteDex === dexId
-            const priceDiff = aggActive
-                ? percentDiff(quoteData.quote.amountOut, aggPredictedOut!)
-                : priceDifferences[dexId]
-            return (
-                <div className="flex items-center gap-2">
-                    <span
-                        className={`text-sm ${isBest ? BEST_QUOTE_CLASS : 'font-normal text-muted-foreground'}`}
-                    >
-                        {parseFloat(amountOut).toFixed(6)} {tokenOut.symbol}
-                    </span>
-                    {!isBest &&
-                        priceDiff !== null &&
-                        priceDiff !== undefined &&
-                        priceDiff !== 0 && (
-                            <span className="text-[10px] text-muted-foreground/50">
-                                {priceDiff > 0 ? '+' : ''}
-                                {priceDiff.toFixed(2)}%
-                            </span>
-                        )}
-                </div>
-            )
-        }
-        return null
+        return (
+            <span className="text-xs tabular-nums text-foreground/80">
+                {formatDisplayAmount(quoteData.quote.amountOut, tokenOut.decimals)}{' '}
+                {tokenOut.symbol}
+            </span>
+        )
+    }
+    const renderDiff = (dexId: string) => {
+        const quoteData = dexQuotes[dexId]
+        if (!quoteData?.quote) return null
+        const priceDiff = aggActive
+            ? percentDiff(quoteData.quote.amountOut, aggPredictedOut!)
+            : priceDifferences[dexId]
+        if (priceDiff === null || priceDiff === undefined || priceDiff === 0) return null
+        return (
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+                {priceDiff > 0 ? '+' : ''}
+                {priceDiff.toFixed(2)}%
+            </span>
+        )
     }
     return (
         <Card>
             <CardContent className="p-4">
-                <div
-                    onClick={toggleExpanded}
-                    className="flex items-center justify-between w-full text-left cursor-pointer"
-                >
-                    <div className="flex items-center gap-2">
-                        <Label className="text-muted-foreground">Swap via:</Label>
-                        <span className="font-medium">
-                            {aggLabel ?? selectedDexInfo.displayName}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div
-                            className="flex items-center gap-1.5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <Label
-                                htmlFor="auto-select"
-                                className="text-xs text-muted-foreground cursor-pointer"
-                            >
-                                Auto
-                            </Label>
-                            <Switch
-                                id="auto-select"
-                                checked={settings.autoSelectBestDex}
-                                onCheckedChange={(checked) => {
-                                    setAutoSelectBestDex(checked)
-                                    if (checked && bestQuoteDex) {
-                                        setSelectedDex(bestQuoteDex)
-                                    }
-                                }}
-                            />
-                        </div>
-                        {expanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Route</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const next = !settings.autoSelectBestDex
+                            setAutoSelectBestDex(next)
+                            if (next && bestQuoteDex) {
+                                setSelectedDex(bestQuoteDex)
+                            }
+                        }}
+                        className={cn(
+                            'h-6 rounded-md px-2 text-xs transition-colors',
+                            settings.autoSelectBestDex
+                                ? 'bg-positive/15 font-medium text-positive'
+                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                         )}
-                    </div>
+                    >
+                        Auto
+                    </button>
                 </div>
-                {expanded && (
-                    <div className="mt-3 pt-3 border-t">
-                        {aggActive && (
-                            <div className="w-full text-left p-3 rounded-lg bg-muted/40">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">Best</Badge>
-                                    <span className="font-medium text-foreground">
-                                        Junoswap Aggregator
-                                    </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Split / cross-DEX best route
-                                </p>
-                                {tokenOut && (
-                                    <div className="mt-2">
-                                        <span className={`text-sm ${BEST_QUOTE_CLASS}`}>
-                                            {parseFloat(
-                                                formatUnits(aggPredictedOut!, tokenOut.decimals)
-                                            ).toFixed(6)}{' '}
-                                            {tokenOut.symbol}
-                                        </span>
-                                    </div>
-                                )}
+                <div className="mb-2 mt-2 h-px bg-border/60" />
+                <div className="space-y-1">
+                    {aggActive && tokenOut && (
+                        <div className="flex items-center justify-between gap-2 rounded-lg bg-positive/[0.05] px-2.5 py-2 ring-1 ring-inset ring-positive/30">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                                <span className="truncate text-xs font-medium text-foreground">
+                                    Junoswap Aggregator
+                                </span>
+                                {BEST_TAG}
                             </div>
-                        )}
-                        {availableDexs.map((dex) => {
-                            const isSelected = dex.id === selectedDex
-                            const isBest = !aggActive && bestQuoteDex === dex.id
-                            return (
-                                <button
-                                    key={dex.id}
-                                    onClick={() => {
-                                        setAutoSelectBestDex(false)
-                                        setSelectedDex(dex.id)
-                                        setExpanded(false)
-                                    }}
-                                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                                        isSelected
-                                            ? 'bg-muted/40 hover:bg-muted/50'
-                                            : 'hover:bg-muted/50'
-                                    }`}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                {isBest && <Badge variant="secondary">Best</Badge>}
-                                                <span
-                                                    className={`font-medium ${
-                                                        isSelected ? 'text-foreground' : ''
-                                                    }`}
-                                                >
-                                                    {dex.displayName}
-                                                </span>
-                                            </div>
-                                            {dex.description && (
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {dex.description}
-                                                </p>
+                            <span className="shrink-0 text-xs tabular-nums text-foreground/80">
+                                {formatDisplayAmount(aggPredictedOut!, tokenOut.decimals)}{' '}
+                                {tokenOut.symbol}
+                            </span>
+                        </div>
+                    )}
+                    {availableDexs.map((dex) => {
+                        const isSelected = !aggActive && dex.id === selectedDex
+                        const isBest = !aggActive && bestQuoteDex === dex.id
+                        return (
+                            <button
+                                key={dex.id}
+                                type="button"
+                                onClick={() => {
+                                    setAutoSelectBestDex(false)
+                                    setSelectedDex(dex.id)
+                                }}
+                                className={cn(
+                                    'w-full rounded-lg px-2.5 py-2 text-left transition-colors',
+                                    isSelected
+                                        ? 'bg-muted/50 ring-1 ring-inset ring-positive/30'
+                                        : 'hover:bg-muted/40'
+                                )}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                        <span
+                                            className={cn(
+                                                'truncate text-xs',
+                                                isSelected
+                                                    ? 'font-medium text-foreground'
+                                                    : 'text-muted-foreground'
                                             )}
-                                            <div className="mt-2">{renderQuoteInfo(dex.id)}</div>
-                                        </div>
+                                        >
+                                            {dex.displayName}
+                                        </span>
+                                        {isBest ? BEST_TAG : renderDiff(dex.id)}
                                     </div>
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
+                                    <span className="shrink-0">{renderQuote(dex.id)}</span>
+                                </div>
+                            </button>
+                        )
+                    })}
+                </div>
             </CardContent>
         </Card>
     )

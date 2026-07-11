@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { TokenIcon, TokenIconSkeleton } from '@/components/ui/token-icon'
 import { EmptyState } from '@/components/ui/empty-state'
-import { ChevronDown, Search, Copy, Check, Loader2, Trash2, Plus } from 'lucide-react'
+import { ChevronDown, Search, Copy, Loader2, Trash2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatBalance, isValidTokenAddress } from '@/services/tokens'
 import { toastSuccess } from '@/lib/toast'
@@ -93,10 +93,11 @@ function ImportTokenRow({ address, chainId, onImport }: ImportTokenRowProps) {
 interface TokenListProps {
     tokens: Token[]
     selectedToken?: Token | null
+    disabledToken?: Token | null
     onSelect: (token: Token) => void
 }
 
-function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
+function TokenList({ tokens, selectedToken, disabledToken, onSelect }: TokenListProps) {
     const chainId = useChainId()
     const customTokens = useCustomTokensStore((s) => s.customTokens)
     const removeCustomToken = useCustomTokensStore((s) => s.removeCustomToken)
@@ -160,6 +161,10 @@ function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
                         <div className="space-y-1">
                             {filteredTokens.map((token) => {
                                 const isSelected = selectedToken?.address === token.address
+                                const isOpposite =
+                                    disabledToken?.address.toLowerCase() ===
+                                    token.address.toLowerCase()
+                                const isDisabled = isSelected || isOpposite
                                 const isCustom = customTokens.some(
                                     (t) =>
                                         t.chainId === token.chainId &&
@@ -169,17 +174,22 @@ function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
                                     <div
                                         key={token.address}
                                         role="button"
-                                        tabIndex={isSelected ? -1 : 0}
-                                        onClick={() => onSelect(token)}
-                                        aria-disabled={isSelected}
+                                        tabIndex={isDisabled ? -1 : 0}
+                                        onClick={() => {
+                                            if (!isDisabled) onSelect(token)
+                                        }}
+                                        aria-disabled={isDisabled}
                                         onKeyDown={(e) => {
+                                            if (isDisabled) return
                                             if (e.key === 'Enter' || e.key === ' ') onSelect(token)
                                         }}
                                         className={cn(
                                             'flex items-center gap-3 w-full p-2 rounded-xl transition-all duration-150',
-                                            isSelected
-                                                ? 'bg-muted/40 border border-border'
-                                                : 'border border-transparent hover:bg-muted/50'
+                                            isSelected && 'bg-muted/40 border border-border',
+                                            isOpposite &&
+                                                'border border-transparent opacity-40 cursor-not-allowed',
+                                            !isDisabled &&
+                                                'border border-transparent hover:bg-muted/50'
                                         )}
                                     >
                                         <div
@@ -235,11 +245,6 @@ function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
                                         )}
-                                        {isSelected && (
-                                            <div className="flex items-center justify-center h-5 w-5 rounded-full bg-foreground/10">
-                                                <Check className="h-3 w-3 text-foreground" />
-                                            </div>
-                                        )}
                                     </div>
                                 )
                             })}
@@ -254,11 +259,18 @@ function TokenList({ tokens, selectedToken, onSelect }: TokenListProps) {
 interface TokenSelectProps {
     token: Token | null
     tokens: Token[]
+    disabledToken?: Token | null
     onSelect: (token: Token) => void
     className?: string
 }
 
-export function TokenSelect({ token, tokens, onSelect, className }: TokenSelectProps) {
+export function TokenSelect({
+    token,
+    tokens,
+    disabledToken,
+    onSelect,
+    className,
+}: TokenSelectProps) {
     const [open, setOpen] = useState(false)
     const handleSelect = (selectedToken: Token) => {
         onSelect(selectedToken)
@@ -290,7 +302,12 @@ export function TokenSelect({ token, tokens, onSelect, className }: TokenSelectP
                 <DialogHeader>
                     <DialogTitle>Select a token</DialogTitle>
                 </DialogHeader>
-                <TokenList tokens={tokens} selectedToken={token} onSelect={handleSelect} />
+                <TokenList
+                    tokens={tokens}
+                    selectedToken={token}
+                    disabledToken={disabledToken}
+                    onSelect={handleSelect}
+                />
             </DialogContent>
         </Dialog>
     )

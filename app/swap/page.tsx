@@ -30,8 +30,10 @@ function SwapContent() {
                         <SwapChartWrapper tokenIn={tokenIn} tokenOut={tokenOut} />
                     </div>
                 )}
-                <div className="order-2 w-full max-w-md space-y-4 lg:w-[448px] lg:flex-none">
+                <div className="order-2 w-full max-w-md lg:w-[448px] lg:flex-none">
                     <SwapCard showChart={showChart} onToggleChart={() => setShowChart((v) => !v)} />
+                </div>
+                <div className="order-3 w-full max-w-md lg:w-80 lg:flex-none">
                     <DexSelectCard />
                 </div>
             </div>
