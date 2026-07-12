@@ -1,18 +1,12 @@
 import { zeroAddress, type Address } from 'viem'
 
-// kub mainnet (chain 96). An earlier deploy (0x183E1961…96e3) registered udonswap and diamon
-// as KIND_V2, but their pairs expose `swap(uint,uint,address)` (no flash-swap `data` arg) and
-// reverted at dispatch. This redeploy registers those two as KIND_V2_NODATA; verified on-chain
-// by simulating a real udonswap leg and a udonswap+junoswap split.
 export const AGG_ROUTER_JUNOSWAP_BITKUB_ADDRESS =
-    '0x532cbec4ADb30Aa4F474c9F71907901729e1917C' as const
+    '0x869A40921A332e0D79300F91361A3DC77F2a0ebc' as const
 
 const AGG_ROUTER_CHAIN_CONFIG: Record<number, { address: Address }> = {
     96: { address: AGG_ROUTER_JUNOSWAP_BITKUB_ADDRESS },
 }
 
-// Returns the aggregation-router address for a chain, or undefined where it is not
-// deployed. Chains absent here keep routing through each DEX's own router.
 export function getAggRouterAddress(chainId: number): Address | undefined {
     const address = AGG_ROUTER_CHAIN_CONFIG[chainId]?.address
     return address && address !== zeroAddress ? address : undefined

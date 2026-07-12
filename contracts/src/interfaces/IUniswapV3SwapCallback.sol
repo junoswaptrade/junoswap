@@ -9,9 +9,16 @@ interface IUniswapV3SwapCallback {
     ) external;
 }
 
-/// @dev PancakeSwap V3 forked Uniswap V3 but renamed the callback, changing its selector.
 interface IPancakeV3SwapCallback {
     function pancakeV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external;
+}
+
+interface IKublerxSwapCallback {
+    function kublerxSwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
         bytes calldata data

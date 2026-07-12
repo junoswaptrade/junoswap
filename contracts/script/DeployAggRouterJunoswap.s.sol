@@ -13,6 +13,12 @@ import "../src/AggRouterJunoswap.sol";
 /// register as KIND_V2_NODATA. Check for selector 0x022c0d9f in a pair's bytecode — if it is
 /// absent and 0x6d9a640a is present, the fork is no-data. Registering the wrong kind reverts
 /// every swap through that factory.
+///
+/// V3 forks rename the swap callback, which used to revert every leg through them (kublerx
+/// pools call `kublerxSwapCallback` 0x2e87c8ea, not `uniswapV3SwapCallback` 0xfa461e33). The
+/// router now accepts any callback selector via its fallback, so no registration is needed —
+/// but a fork that also changed the *shape* of `swap` or `getPool` would still break, so
+/// sanity-check those two selectors (0x128acb08, 0x1698ee82) against a pool before adding one.
 contract DeployAggRouterJunoswap is Script {
     uint256 constant CHAIN_BITKUB = 96;
     uint256 constant CHAIN_KUB_TESTNET = 25925;

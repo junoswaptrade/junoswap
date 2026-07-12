@@ -266,6 +266,43 @@ contract PancakeMockV3Pool is MockV3PoolSim {
     }
 }
 
+/// @dev Same pool, Kublerx's renamed callback selector (0x2e87c8ea).
+contract KublerxMockV3Pool is MockV3PoolSim {
+    constructor(address a, address b, uint24 f) MockV3PoolSim(a, b, f) {}
+
+    function _callback(int256 amount0Delta, int256 amount1Delta, bytes calldata data)
+        internal
+        override
+    {
+        IKublerxSwapCallback(msg.sender).kublerxSwapCallback(
+            amount0Delta,
+            amount1Delta,
+            data
+        );
+    }
+}
+
+/// @dev A fork we have never seen, with a callback name we do not know. The router must still
+/// settle it — this is what the generic fallback buys us over a hardcoded list of selectors.
+contract RenamedCallbackMockV3Pool is MockV3PoolSim {
+    constructor(address a, address b, uint24 f) MockV3PoolSim(a, b, f) {}
+
+    function _callback(int256 amount0Delta, int256 amount1Delta, bytes calldata data)
+        internal
+        override
+    {
+        (bool ok, ) = msg.sender.call(
+            abi.encodeWithSignature(
+                "someFutureV3SwapCallback(int256,int256,bytes)",
+                amount0Delta,
+                amount1Delta,
+                data
+            )
+        );
+        require(ok, "V3: callback failed");
+    }
+}
+
 /// @dev Stands in for an arbitrary contract that tries to invoke the router's swap callback
 /// while an `aggregate` is in flight — the one window where `_reentrancyGuardEntered()` is true.
 contract CallbackReenterer {

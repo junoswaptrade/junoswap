@@ -8,16 +8,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IWETH9.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IUniswapV2Factory.sol";
-import "./interfaces/IUniswapV3SwapCallback.sol";
 import "./interfaces/v3-core/IUniswapV3Pool.sol";
 import "./interfaces/v3-core/IUniswapV3Factory.sol";
 
-contract AggRouterJunoswap is
-    ReentrancyGuard,
-    Ownable,
-    IUniswapV3SwapCallback,
-    IPancakeV3SwapCallback
-{
+contract AggRouterJunoswap is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     address public constant NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -289,26 +283,17 @@ contract AggRouterJunoswap is
         amountOut = uint256(-(zeroForOne ? a1 : a0));
     }
 
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override {
-        _swapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    function pancakeV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override {
+    fallback() external {
+        require(msg.data.length >= 4, "bad callback");
+        (int256 amount0Delta, int256 amount1Delta, bytes memory data) =
+            abi.decode(msg.data[4:], (int256, int256, bytes));
         _swapCallback(amount0Delta, amount1Delta, data);
     }
 
     function _swapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata data
+        bytes memory data
     ) private {
         require(_reentrancyGuardEntered(), "no active swap");
         require(amount0Delta > 0 || amount1Delta > 0, "no payment owed");

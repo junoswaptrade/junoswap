@@ -18,6 +18,8 @@ contract AggRouterJunoswapTest is Test {
     MockV2Factory v2FactoryND; // 30 bps, udonswap/diamon-style: swap() takes no data arg
     MockV3FactorySim v3Factory;
     MockV3FactorySim pcsFactory;
+    MockV3FactorySim klxFactory; // kublerx-style: renamed callback selector
+    MockV3FactorySim unknownFactory; // a fork whose callback name we do not know
 
     MockV2Pair pairAB;
     MockV2Pair pairAC;
@@ -39,6 +41,8 @@ contract AggRouterJunoswapTest is Test {
     MockV3PoolSim poolBW;
     MockV3PoolSim poolFB; // FoT / B
     PancakeMockV3Pool pcsAB;
+    KublerxMockV3Pool klxAB;
+    RenamedCallbackMockV3Pool unknownAB;
 
     address user = address(0xA11CE);
     address recipient = address(0xB0B);
@@ -64,12 +68,16 @@ contract AggRouterJunoswapTest is Test {
         v2FactoryND = new MockV2Factory();
         v3Factory = new MockV3FactorySim();
         pcsFactory = new MockV3FactorySim();
+        klxFactory = new MockV3FactorySim();
+        unknownFactory = new MockV3FactorySim();
 
         router.setFactory(address(v2Factory), router.KIND_V2(), 30);
         router.setFactory(address(v2FactoryLow), router.KIND_V2(), 25);
         router.setFactory(address(v2FactoryND), router.KIND_V2_NODATA(), 30);
         router.setFactory(address(v3Factory), router.KIND_V3(), 0);
         router.setFactory(address(pcsFactory), router.KIND_V3(), 0);
+        router.setFactory(address(klxFactory), router.KIND_V3(), 0);
+        router.setFactory(address(unknownFactory), router.KIND_V3(), 0);
 
         vm.deal(address(this), 10_000_000 ether);
 
@@ -97,6 +105,16 @@ contract AggRouterJunoswapTest is Test {
         pcsFactory.register(address(pcsAB));
         _fund(address(pcsAB), address(tokenA));
         _fund(address(pcsAB), address(tokenB));
+
+        klxAB = new KublerxMockV3Pool(address(tokenA), address(tokenB), 500);
+        klxFactory.register(address(klxAB));
+        _fund(address(klxAB), address(tokenA));
+        _fund(address(klxAB), address(tokenB));
+
+        unknownAB = new RenamedCallbackMockV3Pool(address(tokenA), address(tokenB), 500);
+        unknownFactory.register(address(unknownAB));
+        _fund(address(unknownAB), address(tokenA));
+        _fund(address(unknownAB), address(tokenB));
     }
 
     // ------------------------------------------------------------------ //
@@ -295,6 +313,16 @@ contract AggRouterJunoswapTest is Test {
         assertEq(tokenB.balanceOf(address(router)), 0, "custody B");
         assertEq(tokenC.balanceOf(address(router)), 0, "custody C");
         assertEq(weth.balanceOf(address(router)), 0, "custody W");
+    }
+
+    /// Strips the `Error(string)` selector off raw revert data from a low-level call, so a
+    /// bare revert (no reason) is distinguishable from a `require` message.
+    function _revertReason(bytes memory ret) internal pure returns (string memory) {
+        if (ret.length < 68) return "";
+        assembly {
+            ret := add(ret, 0x04)
+        }
+        return abi.decode(ret, (string));
     }
 
     // ------------------------------------------------------------------ //
@@ -622,24 +650,72 @@ contract AggRouterJunoswapTest is Test {
         _assertNoCustody();
     }
 
+    /// Kublerx renamed every callback; its pools call `kublerxSwapCallback` (0x2e87c8ea).
+    /// Against a router with only the uniswap/pancake selectors, this leg reverted every time.
+    function test_KublerxCallbackSelector() public {
+        uint256 amountIn = 100 ether;
+        tokenA.mint(user, amountIn);
+
+        AggRouterJunoswap.Leg[] memory legs = _legs(1);
+        legs[0] = _oneHopLeg(amountIn, _v3Hop(address(klxFactory), address(tokenB), 500));
+
+        uint256 expected = _v3Out(klxAB, address(tokenA), amountIn);
+        uint256 out = _swap(address(tokenA), address(tokenB), amountIn, expected, false, legs);
+
+        assertEq(out, expected, "kublerx pool swapped via its own callback selector");
+        _assertNoCustody();
+    }
+
+    /// The point of the generic fallback: a fork whose callback name we have never seen still
+    /// settles, with no redeploy and no new selector hardcoded into the router.
+    function test_UnknownCallbackSelectorStillSettles() public {
+        uint256 amountIn = 100 ether;
+        tokenA.mint(user, amountIn);
+
+        AggRouterJunoswap.Leg[] memory legs = _legs(1);
+        legs[0] = _oneHopLeg(amountIn, _v3Hop(address(unknownFactory), address(tokenB), 500));
+
+        uint256 expected = _v3Out(unknownAB, address(tokenA), amountIn);
+        uint256 out = _swap(address(tokenA), address(tokenB), amountIn, expected, false, legs);
+
+        assertEq(out, expected, "pool with an unknown callback name swapped");
+        _assertNoCustody();
+    }
+
     // ------------------------------------------------------------------ //
     // Callback authentication                                            //
     // ------------------------------------------------------------------ //
 
+    /// Every callback selector — known fork or not — reaches `_swapCallback` and is rejected
+    /// there. The selector is not what authenticates; the reentrancy guard is.
     function test_CallbackRevertsOutsideAggregate() public {
         bytes memory data =
             abi.encode(address(v3Factory), address(tokenA), address(tokenB), uint24(3000), 1 ether);
-        vm.prank(address(poolAB));
-        vm.expectRevert("no active swap");
-        router.uniswapV3SwapCallback(int256(1 ether), -int256(1 ether), data);
+
+        string[4] memory sigs = [
+            "uniswapV3SwapCallback(int256,int256,bytes)",
+            "pancakeV3SwapCallback(int256,int256,bytes)",
+            "kublerxSwapCallback(int256,int256,bytes)",
+            "someFutureV3SwapCallback(int256,int256,bytes)"
+        ];
+
+        for (uint256 i = 0; i < sigs.length; i++) {
+            vm.prank(address(poolAB));
+            (bool ok, bytes memory ret) = address(router).call(
+                abi.encodeWithSignature(sigs[i], int256(1 ether), -int256(1 ether), data)
+            );
+            assertFalse(ok, sigs[i]);
+            assertEq(_revertReason(ret), "no active swap", sigs[i]);
+        }
     }
 
-    function test_PancakeCallbackRevertsOutsideAggregate() public {
-        bytes memory data =
-            abi.encode(address(pcsFactory), address(tokenA), address(tokenB), uint24(2500), 1 ether);
-        vm.prank(address(pcsAB));
-        vm.expectRevert("no active swap");
-        router.pancakeV3SwapCallback(int256(1 ether), -int256(1 ether), data);
+    /// Calldata that is not callback-shaped must fail to decode rather than do anything odd.
+    function test_FallbackRejectsGarbageCalldata() public {
+        (bool ok, ) = address(router).call(hex"deadbeef");
+        assertFalse(ok, "empty callback args");
+
+        (ok, ) = address(router).call(hex"dead");
+        assertFalse(ok, "calldata shorter than a selector");
     }
 
     /// The real attack: a third-party contract calling the callback *while* an aggregate is
