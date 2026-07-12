@@ -2,10 +2,11 @@
 
 import { cn } from '@/lib/utils'
 import {
-    calculateGraduationProgress,
-    calculateGraduationTarget,
+    calculateStableGraduationProgress,
+    calculateExactGraduationReserve,
     isReadyToGraduate,
     formatKub,
+    formatKubRounded,
 } from '@/services/launchpad'
 import { Button } from '@/components/ui/button'
 
@@ -13,6 +14,7 @@ interface GraduationProgressProps {
     nativeReserve: bigint
     tokenReserve: bigint
     graduationAmount: bigint
+    virtualAmount: bigint
     isGraduated: boolean
     isGraduating?: boolean
     onGraduate?: () => void
@@ -23,13 +25,14 @@ export function GraduationProgress({
     nativeReserve,
     tokenReserve,
     graduationAmount,
+    virtualAmount,
     isGraduated,
     isGraduating = false,
     onGraduate,
     className,
 }: GraduationProgressProps) {
-    const progress = calculateGraduationProgress(nativeReserve, tokenReserve, graduationAmount)
-    const targetKub = calculateGraduationTarget(tokenReserve, graduationAmount)
+    const exactTarget = calculateExactGraduationReserve(virtualAmount, graduationAmount)
+    const progress = calculateStableGraduationProgress(nativeReserve, exactTarget)
 
     if (isGraduated) {
         return (
@@ -46,8 +49,10 @@ export function GraduationProgress({
                 </div>
                 <div className="flex justify-between text-xs">
                     <span className="text-positive font-medium">Graduated</span>
-                    {targetKub > 0n && (
-                        <span className="text-muted-foreground">{formatKub(targetKub)} KUB</span>
+                    {exactTarget > 0n && (
+                        <span className="text-muted-foreground">
+                            {formatKubRounded(exactTarget)} KUB
+                        </span>
                     )}
                 </div>
             </div>
@@ -101,7 +106,7 @@ export function GraduationProgress({
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
                 <span>
-                    {formatKub(nativeReserve)} / {formatKub(targetKub)} KUB
+                    {formatKub(nativeReserve)} / {formatKubRounded(exactTarget)} KUB
                 </span>
                 <span>{progress.toFixed(1)}%</span>
             </div>

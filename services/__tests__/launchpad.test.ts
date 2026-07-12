@@ -1,9 +1,13 @@
+import { formatEther } from 'viem'
 import { describe, it, expect, vi } from 'vitest'
 import {
     calculateBuyOutput,
     calculateSellOutput,
     calculateGraduationProgress,
+    calculateExactGraduationReserve,
+    calculateStableGraduationProgress,
     formatKub,
+    formatKubRounded,
     formatTokenAmount,
     formatCompact,
     isReadyToGraduate,
@@ -80,6 +84,51 @@ describe('calculateGraduationProgress', () => {
     })
 })
 
+describe('calculateExactGraduationReserve', () => {
+    it('returns graduationAmount unchanged when virtualAmount is 0', () => {
+        const graduationAmount = 4000n * 10n ** 18n
+        expect(calculateExactGraduationReserve(0n, graduationAmount)).toBe(graduationAmount)
+    })
+
+    it('returns graduationAmount unchanged when graduationAmount is 0', () => {
+        expect(calculateExactGraduationReserve(3400n * 10n ** 18n, 0n)).toBe(0n)
+    })
+
+    it('solves close to the analytically-derived production estimate (~2369.9 ether)', () => {
+        const virtualAmount = 3400n * 10n ** 18n
+        const graduationAmount = 4000n * 10n ** 18n
+        const result = calculateExactGraduationReserve(virtualAmount, graduationAmount)
+        const resultEther = Number(formatEther(result))
+        expect(resultEther).toBeGreaterThan(2365)
+        expect(resultEther).toBeLessThan(2375)
+    })
+
+    it('is always strictly below the nominal graduationAmount ceiling', () => {
+        const virtualAmount = 3400n * 10n ** 18n
+        const graduationAmount = 4000n * 10n ** 18n
+        const result = calculateExactGraduationReserve(virtualAmount, graduationAmount)
+        expect(result).toBeGreaterThan(0n)
+        expect(result).toBeLessThan(graduationAmount)
+    })
+})
+
+describe('calculateStableGraduationProgress', () => {
+    it('returns 0 when exactTarget is 0', () => {
+        expect(calculateStableGraduationProgress(1000n, 0n)).toBe(0)
+    })
+
+    it('computes percentage against a fixed (non-shrinking) target', () => {
+        const exactTarget = 4000n * 10n ** 18n
+        expect(calculateStableGraduationProgress(1000n * 10n ** 18n, exactTarget)).toBe(25)
+        expect(calculateStableGraduationProgress(2000n * 10n ** 18n, exactTarget)).toBe(50)
+    })
+
+    it('caps at 100 even when nativeReserve exceeds the target', () => {
+        const exactTarget = 4000n * 10n ** 18n
+        expect(calculateStableGraduationProgress(8000n * 10n ** 18n, exactTarget)).toBe(100)
+    })
+})
+
 describe('formatKub', () => {
     it('returns "0" for zero', () => {
         expect(formatKub(0n)).toBe('0')
@@ -103,6 +152,21 @@ describe('formatKub', () => {
 
     it('formats millions with commas', () => {
         expect(formatKub(1500000n * 10n ** 18n)).toBe('1,500,000')
+    })
+})
+
+describe('formatKubRounded', () => {
+    it('rounds to the nearest whole KUB', () => {
+        // 2369.66 -> 2370, matching the production graduation-estimate figure
+        expect(formatKubRounded(236966n * 10n ** 16n)).toBe('2,370')
+    })
+
+    it('rounds down when below the midpoint', () => {
+        expect(formatKubRounded(236940n * 10n ** 16n)).toBe('2,369')
+    })
+
+    it('returns "0" for zero', () => {
+        expect(formatKubRounded(0n)).toBe('0')
     })
 })
 

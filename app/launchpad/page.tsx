@@ -87,14 +87,12 @@ function LaunchpadContent() {
 
     return (
         <div className="mx-auto px-4 max-w-[1700px] py-6 sm:px-6 lg:px-8">
-            <ActivityTicker />
-
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3 sm:shrink-0">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-[#FF914D] bg-clip-text text-transparent sm:text-2xl">
                         Launchpad
                     </h1>
-                    <div className="relative flex-1 sm:max-w-sm">
+                    <div className="relative flex-1 sm:w-64 sm:flex-none">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder="Search tokens, CA"
@@ -104,7 +102,10 @@ function LaunchpadContent() {
                         />
                     </div>
                 </div>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <div className="sm:min-w-0 sm:flex-1">
+                    <ActivityTicker />
+                </div>
+                <Button onClick={() => setIsCreateDialogOpen(true)} className="sm:shrink-0">
                     <Plus className="mr-1.5 h-4 w-4" />
                     Create Token
                 </Button>

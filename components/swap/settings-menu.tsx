@@ -11,9 +11,9 @@ const SLIPPAGE_PRESETS = [0.1, 0.5, 1] as const
 
 interface SettingsMenuProps {
     slippage: number
-    deadlineMinutes: number
+    deadlineMinutes?: number
     onSlippageChange: (slippage: number) => void
-    onDeadlineChange: (minutes: number) => void
+    onDeadlineChange?: (minutes: number) => void
 }
 
 function isValidSlippage(value: string): boolean {
@@ -32,15 +32,16 @@ export function SettingsMenu({
     onSlippageChange,
     onDeadlineChange,
 }: SettingsMenuProps) {
+    const showDeadline = deadlineMinutes != null && onDeadlineChange != null
     const [open, setOpen] = useState(false)
     const isPreset = SLIPPAGE_PRESETS.some((p) => p === slippage)
     const [slippageInput, setSlippageInput] = useState(isPreset ? '' : String(slippage))
-    const [deadlineInput, setDeadlineInput] = useState(String(deadlineMinutes))
+    const [deadlineInput, setDeadlineInput] = useState(String(deadlineMinutes ?? ''))
 
     useEffect(() => {
         if (open) {
             setSlippageInput(isPreset ? '' : String(slippage))
-            setDeadlineInput(String(deadlineMinutes))
+            setDeadlineInput(String(deadlineMinutes ?? ''))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open])
@@ -54,7 +55,7 @@ export function SettingsMenu({
     const handleDeadlineInput = (value: string) => {
         if (!/^\d*$/.test(value)) return
         setDeadlineInput(value)
-        if (isValidDeadline(value)) onDeadlineChange(Number(value))
+        if (isValidDeadline(value)) onDeadlineChange?.(Number(value))
     }
 
     const slippageInputInvalid = slippageInput !== '' && !isValidSlippage(slippageInput)
@@ -129,27 +130,29 @@ export function SettingsMenu({
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Tx deadline</span>
-                    <div className="flex items-center gap-1.5">
-                        <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={deadlineInput}
-                            onChange={(e) => handleDeadlineInput(e.target.value)}
-                            onBlur={() => {
-                                if (deadlineInput === '' || deadlineInputInvalid)
-                                    setDeadlineInput(String(deadlineMinutes))
-                            }}
-                            className={cn(
-                                'h-7 w-14 rounded-md bg-muted/50 px-2 text-right text-xs',
-                                deadlineInputInvalid &&
-                                    'text-destructive ring-1 ring-inset ring-destructive'
-                            )}
-                        />
-                        <span className="text-xs text-muted-foreground">min</span>
+                {showDeadline && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Tx deadline</span>
+                        <div className="flex items-center gap-1.5">
+                            <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={deadlineInput}
+                                onChange={(e) => handleDeadlineInput(e.target.value)}
+                                onBlur={() => {
+                                    if (deadlineInput === '' || deadlineInputInvalid)
+                                        setDeadlineInput(String(deadlineMinutes))
+                                }}
+                                className={cn(
+                                    'h-7 w-14 rounded-md bg-muted/50 px-2 text-right text-xs',
+                                    deadlineInputInvalid &&
+                                        'text-destructive ring-1 ring-inset ring-destructive'
+                                )}
+                            />
+                            <span className="text-xs text-muted-foreground">min</span>
+                        </div>
                     </div>
-                </div>
+                )}
             </PopoverContent>
         </Popover>
     )

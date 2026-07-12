@@ -36,16 +36,14 @@ export function TokenStats({
                 <div className="flex items-center gap-2">
                     <div className="text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
                         {nativeUsdPrice !== null
-                            ? `$${formatCompact(displayMcap)}`
-                            : `${formatCompact(displayMcap)} KUB`}
+                            ? `$${formatCompact(displayMcap, 2)}`
+                            : `${formatCompact(displayMcap, 2)} KUB`}
                     </div>
                     {priceChange1dPct != null && (
                         <span
                             className={cn(
-                                'inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums',
-                                priceChange1dPct >= 0
-                                    ? 'bg-positive/15 text-positive'
-                                    : 'bg-negative/15 text-negative'
+                                'inline-flex items-center text-xs font-semibold tabular-nums',
+                                priceChange1dPct >= 0 ? 'text-positive' : 'text-negative'
                             )}
                         >
                             {priceChange1dPct >= 0 ? '+' : ''}
@@ -97,8 +95,8 @@ export function TokenStats({
                         <span>
                             ATH{' '}
                             {nativeUsdPrice !== null
-                                ? `$${formatCompact(athNum * nativeUsdPrice)}`
-                                : `${formatCompact(athNum)} KUB`}
+                                ? `$${formatCompact(athNum * nativeUsdPrice, 2)}`
+                                : `${formatCompact(athNum, 2)} KUB`}
                         </span>
                     </div>
                 </div>

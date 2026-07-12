@@ -1,9 +1,9 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { formatEther } from 'viem'
 
-import { EmptyState } from '@/components/ui/empty-state'
 import { useAllSwapEvents } from '@/hooks/useAllSwapEvents'
 import { formatTokenAmount, formatCompact } from '@/services/launchpad'
 import { formatAddress, cn, formatTimeAgo, formatFullDate } from '@/lib/utils'
@@ -12,7 +12,23 @@ import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { getExplorerAddressUrl } from '@/lib/explorer'
 import type { EnrichedSwapEvent } from '@/types/launchpad'
 
-function TradeChip({ event, chainId }: { event: EnrichedSwapEvent; chainId: number }) {
+const ROTATE_INTERVAL_MS = 4000
+
+function LiveBadge() {
+    return (
+        <div className="flex shrink-0 items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-positive opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-positive" />
+            </span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Live
+            </span>
+        </div>
+    )
+}
+
+function EventLine({ event, chainId }: { event: EnrichedSwapEvent; chainId: number }) {
     const valueKub = event.isBuy
         ? parseFloat(formatEther(event.amountIn))
         : parseFloat(formatEther(event.amountOut))
@@ -21,64 +37,54 @@ function TradeChip({ event, chainId }: { event: EnrichedSwapEvent; chainId: numb
         ? parseFloat(formatEther(event.amountOut))
         : parseFloat(formatEther(event.amountIn))
 
-    const symbol = event.tokenSymbol || '???'
-
     return (
         <Link
             href={`/launchpad/token/${event.tokenAddr}?chain=${chainId}`}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-card/50 px-2.5 py-1 text-[11px] transition-colors hover:border-primary/40 hover:bg-accent/50"
+            className="notif-enter flex min-w-0 flex-1 items-center gap-2.5 text-xs"
         >
-            <span
-                className={cn(
-                    'h-1.5 w-1.5 shrink-0 rounded-full',
-                    event.isBuy ? 'bg-positive' : 'bg-negative'
-                )}
-            />
-            <span className="font-semibold">{symbol}</span>
             <span className={cn('font-medium', event.isBuy ? 'text-positive' : 'text-negative')}>
-                {event.isBuy ? 'bought' : 'sold'}
+                {event.isBuy ? 'Buy' : 'Sell'}
             </span>
-            <span className="font-mono tabular-nums tracking-tight">
-                {formatTokenAmount(BigInt(Math.round(tokenAmount * 1e18)))}
+            <span className="truncate">
+                <span className="font-semibold text-foreground">{event.tokenSymbol || '???'}</span>
+                <span className="ml-2 font-mono tabular-nums tracking-tight text-foreground/80">
+                    {formatTokenAmount(BigInt(Math.round(tokenAmount * 1e18)))}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                    for {formatCompact(valueKub)} KUB
+                </span>
             </span>
-            <span className="text-muted-foreground">{formatCompact(valueKub)} KUB</span>
-            <span
-                className="hidden cursor-pointer font-mono text-muted-foreground hover:text-foreground transition-colors sm:inline"
-                onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    window.open(getExplorerAddressUrl(chainId, event.sender), '_blank')
-                }}
-            >
-                {formatAddress(event.sender)}
+            <span className="ml-auto flex shrink-0 items-center gap-2.5">
+                <span
+                    className="hidden cursor-pointer font-mono text-muted-foreground transition-colors hover:text-foreground sm:inline"
+                    onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        window.open(getExplorerAddressUrl(chainId, event.sender), '_blank')
+                    }}
+                >
+                    {formatAddress(event.sender)}
+                </span>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="cursor-default tabular-nums text-muted-foreground/70">
+                            {formatTimeAgo(event.timestamp)}
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{formatFullDate(event.timestamp)}</TooltipContent>
+                </Tooltip>
             </span>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <span className="cursor-default text-muted-foreground">
-                        {formatTimeAgo(event.timestamp)}{' '}
-                    </span>
-                </TooltipTrigger>
-                <TooltipContent>{formatFullDate(event.timestamp)}</TooltipContent>
-            </Tooltip>
         </Link>
     )
 }
 
-function SkeletonTicker() {
+function SkeletonStrip() {
     return (
-        <div className="flex items-center gap-2 overflow-hidden">
-            {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                    key={i}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-card/50 px-2.5 py-1"
-                >
-                    <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted" />
-                    <div className="h-3 w-10 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-8 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-12 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-8 animate-pulse rounded bg-muted" />
-                </div>
-            ))}
+        <div className="flex flex-1 items-center gap-2.5">
+            <div className="h-3 w-7 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-12 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+            <div className="ml-auto h-3 w-16 animate-pulse rounded bg-muted" />
         </div>
     )
 }
@@ -86,36 +92,42 @@ function SkeletonTicker() {
 export function ActivityTicker() {
     const { data: events, isLoading } = useAllSwapEvents()
     const chainId = useLaunchpadChainId()
+    const [index, setIndex] = useState(0)
+    const hoverRef = useRef(false)
 
-    if (isLoading) {
-        return (
-            <div className="mb-4 overflow-hidden px-3 py-2">
-                <SkeletonTicker />
-            </div>
-        )
-    }
+    useEffect(() => {
+        if (events.length < 2) return
+        const id = setInterval(() => {
+            if (!hoverRef.current) setIndex((i) => i + 1)
+        }, ROTATE_INTERVAL_MS)
+        return () => clearInterval(id)
+    }, [events.length])
 
-    if (events.length === 0) {
-        return <EmptyState title="No recent activity" className="mb-4 px-3 py-2" />
-    }
+    if (!isLoading && events.length === 0) return null
 
-    const tickerItems = events.length > 3 ? [...events, ...events] : events
+    const event = events.length > 0 ? events[index % events.length] : undefined
 
     return (
-        <div className="mb-4 overflow-hidden">
-            <div className="flex items-center">
-                <div className="min-w-0 flex-1 overflow-hidden py-2 pl-3">
-                    <div className="ticker-scroll flex items-center gap-2">
-                        {tickerItems.map((event, i) => (
-                            <TradeChip
-                                key={`${event.transactionHash}-${i}`}
-                                event={event}
-                                chainId={chainId}
-                            />
-                        ))}
-                    </div>
-                </div>
-            </div>
+        <div
+            className="flex h-10 min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-border/50 bg-card/40 px-4"
+            onMouseEnter={() => {
+                hoverRef.current = true
+            }}
+            onMouseLeave={() => {
+                hoverRef.current = false
+            }}
+        >
+            <LiveBadge />
+            <div className="h-3.5 w-px shrink-0 bg-border" />
+            {!event ? (
+                <SkeletonStrip />
+            ) : (
+                <EventLine
+                    key={`${event.transactionHash}-${index}`}
+                    event={event}
+                    chainId={chainId}
+                />
+            )}
         </div>
     )
 }

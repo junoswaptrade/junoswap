@@ -20,7 +20,7 @@ import { RecentTrades } from './recent-trades'
 import { TokenHolders } from './token-holders'
 import { GraduationProgress } from './graduation-progress'
 import { ShareTokenDialog } from './share-token-dialog'
-import { Globe, ArrowLeft, Copy, Check, Share2 } from 'lucide-react'
+import { Globe, ArrowLeft, Copy, Check, Share2, Sprout } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
@@ -114,11 +114,13 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                                         </Link>
                                         {tokenInfo.createdTime > 0 && (
                                             <>
-                                                <span>·</span>
+                                                <Sprout className="h-3 w-3 shrink-0" />
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <span className="cursor-default">
-                                                            {formatTimeAgo(tokenInfo.createdTime)}
+                                                            {formatTimeAgo(
+                                                                tokenInfo.createdTime
+                                                            ).replace(' ago', '')}
                                                         </span>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
@@ -301,6 +303,7 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
                                         nativeReserve={nativeReserve}
                                         tokenReserve={tokenReserve}
                                         graduationAmount={graduationAmount}
+                                        virtualAmount={virtualAmount}
                                         isGraduated={!!isGraduated}
                                     />
                                 </CardContent>

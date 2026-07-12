@@ -1,10 +1,9 @@
-import { formatEther, decodeEventLog } from 'viem'
+import { formatEther, parseEther, decodeEventLog } from 'viem'
 import type { Address, Log } from 'viem'
 import { BONDING_CURVE_JUNOSWAP_ABI } from '@/lib/abis/bonding-curve-junoswap'
 import { resolveLaunchpadLogo } from '@/lib/logo'
 import type { LaunchToken } from '@/types/launchpad'
 
-/** Raw shape of a `launchTokens` GraphQL item, shared by every query that selects it. */
 export interface RawLaunchTokenItem {
     tokenAddr: string
     creator: string
@@ -40,13 +39,8 @@ export function mapLaunchTokenItem(item: RawLaunchTokenItem, chainId: number): L
 
 export const PUMP_FEE_BPS = 100n // 1%
 
-/** Initial token supply: 1 billion with 18 decimals */
 export const INITIAL_TOKEN_SUPPLY = 1000000000n * 10n ** 18n
 
-/**
- * Calculate buy output amount (client-side, mirrors on-chain logic)
- * Buy uses virtualAmount + nativeReserve as input reserve
- */
 export function calculateBuyOutput(
     nativeAmountIn: bigint,
     nativeReserve: bigint,
@@ -59,10 +53,6 @@ export function calculateBuyOutput(
     return getAmountOut(amountInAfterFee, virtualAmount + nativeReserve, tokenReserve)
 }
 
-/**
- * Calculate sell output amount (client-side, mirrors on-chain logic)
- * Sell uses virtualAmount + nativeReserve as output reserve
- */
 export function calculateSellOutput(
     tokenAmountIn: bigint,
     nativeReserve: bigint,
@@ -75,10 +65,6 @@ export function calculateSellOutput(
     return getAmountOut(amountInAfterFee, tokenReserve, virtualAmount + nativeReserve)
 }
 
-/**
- * Constant-product AMM formula with 1% fee baked in
- * Mirrors BondingCurveJunoswap.getAmountOut
- */
 function getAmountOut(inputAmount: bigint, inputReserve: bigint, outputReserve: bigint): bigint {
     if (inputReserve <= 0n || outputReserve <= 0n) return 0n
     const inputAmountWithFee = inputAmount * 99n
@@ -87,21 +73,12 @@ function getAmountOut(inputAmount: bigint, inputReserve: bigint, outputReserve: 
     return numerator / denominator
 }
 
-/**
- * Calculate the actual KUB target needed for graduation.
- * From the contract condition: tokenReserve * graduationAmount <= INITIAL_TOKEN * nativeReserve
- * Solving for nativeReserve: target = (tokenReserve * graduationAmount) / INITIAL_TOKEN
- */
 export function calculateGraduationTarget(tokenReserve: bigint, graduationAmount: bigint): bigint {
     const INITIAL_TOKEN = 1_000_000_000n * 10n ** 18n
     if (graduationAmount <= 0n) return 0n
     return (tokenReserve * graduationAmount) / INITIAL_TOKEN
 }
 
-/**
- * Calculate graduation progress as percentage (0-100).
- * Uses the same ratio as the contract: (INITIAL_TOKEN * nativeReserve) / (tokenReserve * graduationAmount)
- */
 export function calculateGraduationProgress(
     nativeReserve: bigint,
     tokenReserve: bigint,
@@ -112,6 +89,40 @@ export function calculateGraduationProgress(
     const progress = Number(
         (INITIAL_TOKEN * nativeReserve * 100n) / (tokenReserve * graduationAmount)
     )
+    return Math.min(100, progress)
+}
+
+export function calculateExactGraduationReserve(
+    virtualAmount: bigint,
+    graduationAmount: bigint
+): bigint {
+    if (virtualAmount <= 0n || graduationAmount <= 0n) return graduationAmount
+
+    const V = Number(formatEther(virtualAmount))
+    const G = Number(formatEther(graduationAmount))
+    const FEE_EXP = 0.99
+    const target = G * Math.pow(V, FEE_EXP)
+
+    let N = (-V + Math.sqrt(V * V + 4 * V * G)) / 2
+
+    for (let i = 0; i < 20; i++) {
+        const base = V + N
+        const f = N * Math.pow(base, FEE_EXP) - target
+        const fPrime = Math.pow(base, FEE_EXP) + N * FEE_EXP * Math.pow(base, FEE_EXP - 1)
+        const step = f / fPrime
+        N = Math.max(0, N - step)
+        if (Math.abs(step) < 1e-9) break
+    }
+
+    return parseEther(N.toFixed(18))
+}
+
+export function calculateStableGraduationProgress(
+    nativeReserve: bigint,
+    exactTarget: bigint
+): number {
+    if (exactTarget <= 0n) return 0
+    const progress = Number((nativeReserve * 100n) / exactTarget)
     return Math.min(100, progress)
 }
 
@@ -130,6 +141,11 @@ export function formatKub(weiValue: bigint): string {
     return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
+export function formatKubRounded(weiValue: bigint): string {
+    const num = Math.round(parseFloat(formatEther(weiValue)))
+    return num.toLocaleString('en-US')
+}
+
 export function formatTokenAmount(weiValue: bigint): string {
     const formatted = formatEther(weiValue)
     const num = parseFloat(formatted)
@@ -142,21 +158,16 @@ export function formatTokenAmount(weiValue: bigint): string {
     return `${(num / 1000000000).toFixed(2)}B`
 }
 
-export function formatCompact(num: number): string {
+export function formatCompact(num: number, decimals = 1): string {
     if (num === 0) return '0'
     if (num < 0.01) return '<0.01'
     if (num < 1) return num.toFixed(2)
     if (num < 1000) return num.toFixed(0)
-    if (num < 1000000) return `${(num / 1000).toFixed(1)}K`
-    if (num < 1000000000) return `${(num / 1000000).toFixed(1)}M`
-    return `${(num / 1000000000).toFixed(1)}B`
+    if (num < 1000000) return `${(num / 1000).toFixed(decimals)}K`
+    if (num < 1000000000) return `${(num / 1000000).toFixed(decimals)}M`
+    return `${(num / 1000000000).toFixed(decimals)}B`
 }
 
-/**
- * Check if token is ready to graduate.
- * Uses the same ratio check as the contract: tokenReserve / nativeReserve <= INITIALTOKEN / graduationAmount
- * Equivalent to: tokenReserve * graduationAmount <= INITIALTOKEN * nativeReserve
- */
 export function isReadyToGraduate(
     nativeReserve: bigint,
     tokenReserve: bigint,
@@ -168,12 +179,6 @@ export function isReadyToGraduate(
     return tokenReserve * graduationAmount <= INITIAL_TOKEN * nativeReserve
 }
 
-/**
- * Extract the token address from Creation event logs.
- * The Creation event has `creator` indexed (topics[1]) and `tokenAddr` non-indexed (in data).
- * `bondingCurveAddress` is the contract to attribute the Creation log to (per-chain);
- * when omitted, any log decodable as a Creation event is accepted.
- */
 export function parseTokenAddressFromLogs(
     logs: Log[],
     bondingCurveAddress?: Address

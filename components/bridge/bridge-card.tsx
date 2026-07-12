@@ -19,7 +19,7 @@ import { getChainMetadata } from '@/lib/wagmi'
 import { BRIDGE_SUPPORTED_CHAIN_IDS, DEFAULT_BRIDGE_CHAIN_ID } from '@/types/bridge'
 import { ChainSelect } from './chain-select'
 import { TokenSelect } from '@/components/swap/token-select'
-import { SettingsDialog } from '@/components/swap/settings-dialog'
+import { SettingsMenu } from '@/components/swap/settings-menu'
 import { BridgeStatus } from './bridge-status'
 import { ArrowDownUp, ArrowRightLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { isValidNumberInput } from '@/lib/utils'
@@ -142,8 +142,8 @@ export function BridgeCard() {
         }
     }
 
-    const handleSettingsSave = (slippage: number) => {
-        setSlippage(slippage / 100)
+    const handleSlippageChange = (slippagePct: number) => {
+        setSlippage(slippagePct / 100)
     }
 
     const formatDuration = (seconds: number): string => {
@@ -367,14 +367,11 @@ export function BridgeCard() {
                     )}
 
                     <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                            <SettingsDialog
-                                currentSlippage={settings.slippage * 100}
-                                currentDeadlineMinutes={20}
-                                onSave={handleSettingsSave}
-                            />
-                            <span>Slippage: {(settings.slippage * 100).toFixed(1)}%</span>
-                        </div>
+                        <span>Slippage: {(settings.slippage * 100).toFixed(1)}%</span>
+                        <SettingsMenu
+                            slippage={settings.slippage * 100}
+                            onSlippageChange={handleSlippageChange}
+                        />
                     </div>
 
                     <Button

@@ -138,14 +138,14 @@ function TokenListSkeleton() {
                     <Card key={i}>
                         <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
                             <div className="h-24 w-24 shrink-0 animate-pulse rounded-xl bg-muted lg:h-[120px] lg:w-[120px]" />
-                            <div className="min-w-0 flex-1 space-y-2 py-0.5">
-                                <div className="h-5 w-20 animate-pulse rounded bg-muted" />
-                                <div className="h-3 w-32 animate-pulse rounded bg-muted" />
-                                <div className="mt-3 flex items-center justify-between">
-                                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                            <div className="flex min-w-0 flex-1 flex-col self-stretch py-1">
+                                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                <div className="mt-1.5 h-3 w-32 animate-pulse rounded bg-muted" />
+                                <div className="mt-auto space-y-1.5 pt-3">
+                                    <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                                    <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+                                    <div className="h-1 w-full animate-pulse rounded-full bg-muted" />
                                 </div>
-                                <div className="h-2 w-full animate-pulse rounded-full bg-muted" />
                             </div>
                         </CardContent>
                     </Card>
