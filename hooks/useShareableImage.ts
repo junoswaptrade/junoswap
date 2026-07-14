@@ -9,7 +9,6 @@ interface UseShareableImageReturn {
     isGenerating: boolean
 }
 
-// iPadOS 13+ reports its user agent as `Macintosh`, so it's detected via touch points.
 function isMobileDevice(): boolean {
     if (typeof navigator === 'undefined') return false
     const ua = navigator.userAgent
@@ -28,11 +27,7 @@ export function useShareableImage(): UseShareableImageReturn {
                 const blob = await toBlob(element, {
                     pixelRatio: 2,
                     backgroundColor: '#0a0e1a',
-                    // Force a fresh CORS fetch of remote token logos; without this,
-                    // html-to-image reuses the browser's non-CORS cached copy and
-                    // silently drops the image, leaving the icon blank in the capture.
                     cacheBust: true,
-                    // Drop UI-only chrome (e.g. the save button) from the captured image.
                     filter: (node) =>
                         !(node instanceof HTMLElement && node.dataset.captureIgnore !== undefined),
                 })
@@ -40,17 +35,12 @@ export function useShareableImage(): UseShareableImageReturn {
 
                 const file = new File([blob], filename, { type: 'image/png' })
 
-                // iOS/Android ignore the <a download> attribute, so route mobile through
-                // the native share sheet — its "Save Image" action writes to the photo album.
-                // Share files ONLY: adding a title/text/url makes iOS present a generic
-                // share sheet that hides "Save Image", so the album save is no longer offered.
                 if (isMobileDevice() && navigator.canShare?.({ files: [file] })) {
                     try {
                         await navigator.share({ files: [file] })
                         return
                     } catch (error) {
                         if (error instanceof Error && error.name === 'AbortError') return
-                        // any other share failure: fall through to the anchor download
                     }
                 }
 

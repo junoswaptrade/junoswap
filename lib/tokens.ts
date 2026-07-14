@@ -1,21 +1,23 @@
-import type { Token } from '@/types/tokens'
 import type { Address } from 'viem'
-import { kubTestnet, jbc, bitkub, worldchain, base, bsc, isNativeToken } from './wagmi'
+import {
+    ERC20_ABI,
+    NATIVE_TOKEN_ADDRESS,
+    WRAPPED_NATIVE_ADDRESSES,
+    getSwapAddress,
+    getWrapOperation as getWrapOperationBySdk,
+    isNativeToken,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import { kubTestnet, jbc, bitkub, worldchain, base, bsc } from './wagmi'
 import { resolveLaunchpadLogo } from './logo'
 import tokenData from './tokens.json'
 
 const KUSDT_ADDRESS = '0x7d984C24d2499D840eB3b7016077164e15E5faA6' as const
 
-/**
- * Get the allowance function name for a token
- * Most tokens use 'allowance', but KUSDT uses 'allowances' (plural)
- */
 export function getAllowanceFunctionName(tokenAddress: Address): 'allowance' | 'allowances' {
     return tokenAddress.toLowerCase() === KUSDT_ADDRESS.toLowerCase() ? 'allowances' : 'allowance'
 }
 
-// tokens.json is keyed by chain slug (not numeric id) so that lib/wagmi.ts stays the single
-// source of truth for chain ids; the loader below maps each slug to its id and injects chainId.
 const CHAIN_ID_BY_SLUG: Record<string, number> = {
     kubTestnet: kubTestnet.id,
     bitkub: bitkub.id,
@@ -71,7 +73,147 @@ export function getDefaultPairTokens(chainId: number): {
 export function findTokenByAddress(chainId: number, address: string): Token | undefined {
     const tokens = TOKEN_LISTS[chainId] || []
     if (isNativeToken(address as Address)) {
-        return tokens.find((t) => t.address === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')
+        return tokens.find((t) => t.address === NATIVE_TOKEN_ADDRESS)
     }
     return tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())
+}
+
+export function buildInfiniteApprovalParams(tokenAddress: Address, spenderAddress: Address) {
+    return {
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'approve' as const,
+        args: [spenderAddress, getMaxUint256()] as const,
+    }
+}
+
+function getMaxUint256(): bigint {
+    return 2n ** 256n - 1n
+}
+
+export function needsApproval(allowance: bigint, requiredAmount: bigint): boolean {
+    return allowance < requiredAmount
+}
+
+export function formatTokenAmount(amount: bigint, decimals: number): string {
+    const divisor = BigInt(10 ** decimals)
+    const whole = amount / divisor
+    const fraction = amount % divisor
+
+    if (fraction === 0n) {
+        return whole.toString()
+    }
+
+    const fractionStr = fraction.toString().padStart(decimals, '0')
+    const trimmed = fractionStr.replace(/0+$/, '')
+
+    return `${whole}.${trimmed}`
+}
+
+export function formatDisplayAmount(amount: bigint, decimals: number, maxDecimals = 6): string {
+    const raw = formatTokenAmount(amount, decimals)
+    const dotIndex = raw.indexOf('.')
+    if (dotIndex === -1) return raw
+    const truncated = raw.slice(0, dotIndex + 1 + maxDecimals)
+    return truncated.replace(/\.?0+$/, '')
+}
+
+export function formatBalance(amount: bigint, decimals: number): string {
+    const valueStr = formatTokenAmount(amount, decimals)
+    const value = parseFloat(valueStr)
+
+    if (value === 0) return '0'
+
+    if (value > 0 && value < 0.000001) {
+        const match = valueStr.match(/^0\.0*/)
+        const leadingZeros = match ? match[0].length - 2 : 0
+        const significant = valueStr.replace(/^0\.0*/, '').slice(0, 8)
+        return `0.${'0'.repeat(leadingZeros)}${significant}`
+    }
+
+    if (value < 1) {
+        return value.toFixed(6).replace(/\.?0+$/, '')
+    }
+
+    if (value < 1000) {
+        return value.toFixed(4).replace(/\.?0+$/, '')
+    }
+
+    if (value >= 1000000000) {
+        return `${(value / 1000000000).toFixed(2)}B`.replace(/\.?0+$/, '')
+    }
+    if (value >= 1000000) {
+        return `${(value / 1000000).toFixed(2)}M`.replace(/\.?0+$/, '')
+    }
+    if (value >= 1000) {
+        return `${(value / 1000).toFixed(2)}K`.replace(/\.?0+$/, '')
+    }
+
+    return value.toFixed(2).replace(/\.?0+$/, '')
+}
+
+export function parseTokenAmount(amount: string, decimals: number): bigint {
+    const [whole = '0', fraction = '0'] = amount.split('.')
+    const wholePart = BigInt(whole)
+    const fractionPart = BigInt(fraction.padEnd(decimals, '0').slice(0, decimals))
+
+    return wholePart * BigInt(10 ** decimals) + fractionPart
+}
+
+export function isValidTokenAddress(address: string): boolean {
+    return /^0x[a-fA-F0-9]{40}$/.test(address)
+}
+
+export function findWrappedNativeAddress(chainId: number): Address | undefined {
+    return WRAPPED_NATIVE_ADDRESSES[chainId]
+}
+
+export function getWrappedNativeAddress(chainId: number): Address {
+    const address = findWrappedNativeAddress(chainId)
+    if (!address) {
+        throw new Error(`No wrapped native token found for chain ${chainId}`)
+    }
+    return address
+}
+
+export function getDisplayToken(token: Token): Token {
+    const tokens = TOKEN_LISTS[token.chainId]
+    const native = tokens?.find((t) => isNativeToken(t.address as Address))
+    const wrapped = tokens?.[1]
+    if (native && wrapped && token.address.toLowerCase() === wrapped.address.toLowerCase()) {
+        return { ...token, symbol: native.symbol, name: native.name }
+    }
+    return token
+}
+
+export { getSwapAddress }
+
+export function isSameToken(tokenA: Token | null, tokenB: Token | null): boolean {
+    if (!tokenA || !tokenB) return false
+    if (tokenA.chainId !== tokenB.chainId) return false
+
+    if (isNativeWrappedPair(tokenA, tokenB)) return false
+
+    const addressA = getSwapAddress(tokenA.address as Address, tokenA.chainId)
+    const addressB = getSwapAddress(tokenB.address as Address, tokenB.chainId)
+
+    return addressA.toLowerCase() === addressB.toLowerCase()
+}
+
+function isNativeWrappedPair(tokenA: Token | null, tokenB: Token | null): boolean {
+    return getWrapOperation(tokenA, tokenB) !== null
+}
+
+export function getWrapOperation(
+    tokenIn: Token | null,
+    tokenOut: Token | null
+): 'wrap' | 'unwrap' | null {
+    if (!tokenIn || !tokenOut) return null
+    if (tokenIn.chainId !== tokenOut.chainId) return null
+
+    return getWrapOperationBySdk(
+        tokenIn.address as Address,
+        tokenOut.address as Address,
+        tokenIn.chainId
+    )
 }

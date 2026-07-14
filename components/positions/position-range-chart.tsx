@@ -10,7 +10,7 @@ import {
     buildLinePath,
     priceToY,
     tickToPriceNumber,
-} from '@/services/position-chart'
+} from '@/lib/position-chart'
 
 const VIEW_W = 200
 const VIEW_H = 56

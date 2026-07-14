@@ -4,78 +4,28 @@ import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
 import { useQuery } from '@tanstack/react-query'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { UNISWAP_V3_POOL_ABI, fetchV3Pools } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { getTokensForChain } from '@/lib/tokens'
 import { getTickSpacing } from '@/lib/liquidity-helpers'
 import { useGraduatedTokens } from '@/hooks/useGraduatedTokens'
+import { useV3Tokens } from '@/hooks/useV3Tokens'
 import type { V3PoolData } from '@/types/earn'
-import type { Token } from '@/types/tokens'
-
 export const PONDER_INDEXED_CHAINS = new Set([25925, 96, 8899])
-
-interface V3PoolRow {
-    address: string
-    token0: string
-    token1: string
-    fee: number
-}
-
-interface V3PoolResponse {
-    v3Pools: {
-        items: Array<V3PoolRow>
-    }
-}
-
-interface V3TokenResponse {
-    v3Tokens: {
-        items: Array<{
-            address: string
-            symbol: string
-            name: string
-            decimals: number
-        }>
-    }
-}
-
-const V3_POOLS_QUERY = `
-  query V3PoolsForChain($chainId: Int!) {
-    v3Pools(where: { chainId: $chainId, protocol: "junoswap" }, limit: 500) {
-      items {
-        address
-        token0
-        token1
-        fee
-      }
-    }
-  }
-`
-
-const V3_TOKENS_QUERY = `
-  query V3TokensForChain($chainId: Int!) {
-    v3Tokens(where: { chainId: $chainId }, limit: 500) {
-      items {
-        address
-        symbol
-        name
-        decimals
-      }
-    }
-  }
-`
 
 export function useAllPools(chainId: number): { pools: V3PoolData[]; isLoading: boolean } {
     const isIndexed = PONDER_INDEXED_CHAINS.has(chainId)
 
     const staticTokens = useMemo(() => getTokensForChain(chainId), [chainId])
     const { tokens: graduatedTokens } = useGraduatedTokens(chainId)
+    const { tokens: v3Tokens } = useV3Tokens(chainId)
 
     const { data: ponderPools, isLoading: isLoadingPools } = useQuery({
         queryKey: ['v3-pools-all', chainId],
         queryFn: async () => {
             try {
-                const data = await ponderRequest<V3PoolResponse>(V3_POOLS_QUERY, { chainId })
-                return data.v3Pools.items
+                return await fetchV3Pools(ponderClient, { chainId })
             } catch (e) {
                 if (isPonderError(e)) return []
                 throw e
@@ -85,22 +35,6 @@ export function useAllPools(chainId: number): { pools: V3PoolData[]; isLoading: 
         staleTime: 60_000,
     })
 
-    const { data: v3Tokens } = useQuery({
-        queryKey: ['v3-tokens', chainId],
-        queryFn: async () => {
-            try {
-                const data = await ponderRequest<V3TokenResponse>(V3_TOKENS_QUERY, { chainId })
-                return data.v3Tokens.items
-            } catch (e) {
-                if (isPonderError(e)) return []
-                throw e
-            }
-        },
-        enabled: isIndexed,
-        staleTime: 60_000,
-    })
-
-    // Build token lookup: static > graduated > v3Tokens > minimal placeholder
     const tokenLookup = useMemo(() => {
         const map = new Map<string, Token>()
         const add = (t: Token) => {
@@ -109,7 +43,7 @@ export function useAllPools(chainId: number): { pools: V3PoolData[]; isLoading: 
         }
         for (const t of staticTokens) add(t)
         for (const t of graduatedTokens) add(t)
-        for (const t of v3Tokens ?? []) {
+        for (const t of v3Tokens) {
             add({
                 address: t.address as Address,
                 symbol: t.symbol || '???',
@@ -138,9 +72,6 @@ export function useAllPools(chainId: number): { pools: V3PoolData[]; isLoading: 
         [tokenLookup, chainId]
     )
 
-    // Batch slot0 + liquidity for all discovered pools. The v3_pool table is shared
-    // across DEXes, but the V3_POOLS_QUERY already filters to protocol: "junoswap",
-    // so external pools (e.g. kublerx) never reach here.
     const poolList = useMemo(() => ponderPools ?? [], [ponderPools])
     const { data: poolStateResults, isLoading: isLoadingState } = useReadContracts({
         contracts: poolList.flatMap((pool) => [

@@ -10,9 +10,12 @@ import {
 } from 'wagmi'
 import type { Address } from 'viem'
 import type { IncentiveKey, PositionWithTokens } from '@/types/earn'
-import { getV3Config, getV3StakerAddress } from '@/lib/dex-config'
-import { UNISWAP_V3_STAKER_ABI } from '@/lib/abis/uniswap-v3-staker'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
+import {
+    getV3Config,
+    getV3StakerAddress,
+    UNISWAP_V3_STAKER_ABI,
+    NONFUNGIBLE_POSITION_MANAGER_ABI,
+} from '@coshi190/junoswap-sdk'
 import {
     encodeIncentiveKeyData,
     buildUnstakeAndWithdrawMulticall,

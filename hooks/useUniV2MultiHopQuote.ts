@@ -3,15 +3,18 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import {
+    getV2Config,
+    getDexsByProtocol,
+    resolveSwapPath,
+    ProtocolType,
+    UNISWAP_V2_ROUTER_ABI,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import type { DEXType } from '@/lib/dex-meta'
 import type { RouteQuote, SwapRoute } from '@/types/routing'
-import type { DEXType } from '@/types/dex'
-import { getV2Config, getDexsByProtocol, ProtocolType } from '@/lib/dex-config'
 import { getIntermediaryTokens, enumerateHopPaths, MAX_HOPS } from '@/lib/routing-config'
-import { UNISWAP_V2_ROUTER_ABI } from '@/lib/abis/uniswap-v2-router'
-import { buildMultiHopSwapPath } from '@/services/dex/uniswap-v2'
-import { getWrapOperation } from '@/services/tokens'
-import { findTokenByAddress } from '@/lib/tokens'
+import { getWrapOperation, findTokenByAddress } from '@/lib/tokens'
 
 interface UseUniV2MultiHopQuoteParams {
     tokenIn: Token | null
@@ -29,10 +32,8 @@ interface UseUniV2MultiHopQuoteResult {
     error: Error | null
 }
 
-/** Hard cap on batched quote calls per keystroke, guarding against pathological fan-out. */
 const MAX_QUOTE_QUERIES = 80
 
-/** One V2 multi-hop path on a specific DEX (native→wrapped normalized per that DEX). */
 interface Candidate {
     dexId: DEXType
     router: Address
@@ -56,7 +57,6 @@ export function useUniV2MultiHopQuote({
 
     const isReadyForQuote = enabled && !!tokenIn && !!tokenOut && amountIn > 0n && !wrapOperation
 
-    // Enumerate candidate paths across every V2 DEX × connector path (2- and 3-hop).
     const candidates = useMemo((): Candidate[] => {
         if (!isReadyForQuote || !tokenIn || !tokenOut) return []
         const connectors = getIntermediaryTokens(chainId)
@@ -71,8 +71,7 @@ export function useUniV2MultiHopQuote({
             const cfg = getV2Config(chainId, targetDexId)
             if (!cfg?.router) continue
             for (const rawPath of rawPaths) {
-                const path = buildMultiHopSwapPath(rawPath, chainId, cfg.wnative)
-                // Drop paths that collapse after native→wrapped normalization.
+                const path = resolveSwapPath(rawPath, chainId, cfg.wnative)
                 const collapsed = path.some(
                     (t, i) => i > 0 && t.toLowerCase() === path[i - 1]!.toLowerCase()
                 )

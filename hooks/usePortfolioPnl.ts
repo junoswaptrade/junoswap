@@ -5,7 +5,7 @@ import {
     computePortfolioPnl,
     type TokenPnl,
     type PortfolioPnlTotals,
-} from '@/services/dex/portfolio-pnl'
+} from '@/services/portfolio/portfolio-pnl'
 import type { UserSwapEvent } from '@/hooks/useUserSwapEvents'
 import type { TokenHolding } from '@/hooks/useMultiBalances'
 
@@ -17,12 +17,6 @@ const EMPTY_TOTALS: PortfolioPnlTotals = {
     totalPnlPercent: 0,
 }
 
-/**
- * Weighted-average, realized + unrealized PnL for the portfolio, denominated in
- * historical USD. `pnlByToken` is keyed by held-token address (for the cards);
- * `totals` aggregates every token with swap history, including fully-exited
- * positions whose realized gains no longer appear as holdings.
- */
 export function usePortfolioPnl(
     swapEvents: UserSwapEvent[] | undefined,
     holdings: Map<string, TokenHolding>,
@@ -38,8 +32,6 @@ export function usePortfolioPnl(
         return map
     }, [holdings])
 
-    // Token decimals so the PnL engine decodes swap amounts at the right scale;
-    // without this, 6-decimal tokens (e.g. USDT) get astronomical cost bases.
     const decimalsByToken = useMemo(() => {
         const map = new Map<string, number>()
         for (const [key, holding] of holdings) {
@@ -61,7 +53,6 @@ export function usePortfolioPnl(
             decimalsByToken
         )
 
-        // Expose only held tokens to the cards; null for tokens without history.
         const pnlByToken = new Map<string, TokenPnl | null>()
         for (const key of holdings.keys()) {
             pnlByToken.set(key, perToken.get(key) ?? null)

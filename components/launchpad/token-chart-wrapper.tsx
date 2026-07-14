@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { Address } from 'viem'
-import type { DailyMetrics } from '@/services/chart'
+import type { DailyMetrics } from '@/services/launchpad/chart'
 import { Loader2 } from 'lucide-react'
 
 const TokenChart = dynamic(() => import('./token-chart').then((mod) => mod.TokenChart), {

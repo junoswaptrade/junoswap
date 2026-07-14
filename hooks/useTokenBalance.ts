@@ -2,11 +2,10 @@
 
 import { useBalance, useReadContract, useReadContracts, useAccount } from 'wagmi'
 import { zeroAddress, type Address } from 'viem'
-import type { Token } from '@/types/tokens'
-import { formatTokenAmount } from '@/services/tokens'
+import { ERC20_ABI } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import { formatTokenAmount } from '@/lib/tokens'
 import { isNativeToken } from '@/lib/wagmi'
-import { ERC20_ABI } from '@/lib/abis/erc20'
-
 interface UseTokenBalanceParams {
     token: Token | null
     address?: Address

@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { TokenList } from '@/components/launchpad/token-list'
 import { CreateTokenDialog } from '@/components/launchpad/create-token-dialog'
 import { ActivityTicker } from '@/components/launchpad/activity-feed'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
+import { isLaunchpadChain } from '@coshi190/junoswap-sdk'
 import { bitkub } from '@/lib/wagmi'
 import { Plus, Search } from 'lucide-react'
 

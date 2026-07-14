@@ -8,7 +8,7 @@ import { Jazzicon } from '@/components/web3/jazzicon'
 import { ReferralDialog } from '@/components/web3/referral-dialog'
 import { useReferralRewards } from '@/hooks/useReferralRewards'
 import { formatAddress } from '@/lib/utils'
-import { formatCompact } from '@/services/launchpad'
+import { formatCompact } from '@/services/launchpad/launchpad'
 
 interface ReferralRewardsPanelProps {
     nativeUsdPrice: number | null

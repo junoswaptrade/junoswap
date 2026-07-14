@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
+import { isLaunchpadChain } from '@coshi190/junoswap-sdk'
 import { fetchBondingCurveSwaps, fetchV3Swaps, fetchV2Swaps } from '@/lib/swap-events'
 
 export interface UserSwapEvent {
@@ -25,8 +25,6 @@ export function useUserSwapEvents(address: Address | undefined, chainId: number)
             if (!address || !isSupportedChain) return []
             const sender = address.toLowerCase()
             try {
-                // Same protocols and parsing as the leaderboard/points fetchers, scoped
-                // to this trader, so portfolio PnL matches the leaderboard exactly.
                 const [bondingCurveEvents, v3Events, v2Events] = await Promise.all([
                     hasLaunchpad
                         ? fetchBondingCurveSwaps(chainId, { sender })

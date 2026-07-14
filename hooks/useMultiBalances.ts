@@ -3,10 +3,9 @@
 import { useMemo, useRef } from 'react'
 import { useReadContracts } from 'wagmi'
 import { type Address } from 'viem'
-import { ERC20_ABI } from '@/lib/abis/erc20'
-import { formatTokenAmount } from '@/services/tokens'
-import type { Token } from '@/types/tokens'
-
+import { ERC20_ABI } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import { formatTokenAmount } from '@/lib/tokens'
 export interface TokenHolding {
     token: Token
     rawBalance: bigint

@@ -5,7 +5,7 @@ const TOKEN0 = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const TOKEN1 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 const RECIPIENT = '0x1111111111111111111111111111111111111111'
 
-vi.mock('@/services/tokens', () => ({
+vi.mock('@/lib/tokens', () => ({
     getWrappedNativeAddress: vi.fn(() => WRAPPED),
 }))
 

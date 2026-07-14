@@ -3,7 +3,7 @@ import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { fetchLaunchTokenMeta } from '@/lib/launchpad-og'
 import { tokenHue } from '@/lib/token-color'
-import { formatCompact } from '@/services/launchpad'
+import { formatCompact } from '@/services/launchpad/launchpad'
 
 export const alt = 'Junoswap Launchpad token'
 export const size = { width: 1200, height: 630 }
@@ -89,13 +89,11 @@ export default async function Image({ params }: { params: Promise<{ address: str
                     height: '100%',
                     overflow: 'hidden',
                     backgroundColor: CARD_BG,
-                    // Grid overlay — modal uses 24px on a ~400px card; scaled to keep density.
                     backgroundImage:
                         'linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)',
                     backgroundSize: '60px 60px',
                 }}
             >
-                {/* Brand glows (modal blur-3xl → radial gradient, satori has no blur) */}
                 <div
                     style={{
                         position: 'absolute',

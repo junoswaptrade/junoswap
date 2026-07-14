@@ -5,9 +5,9 @@ import type {
     CollectCallParams,
 } from '@/types/earn'
 import { MAX_UINT128 } from '@/types/earn'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
+import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@coshi190/junoswap-sdk'
 import { calculateDeadline } from '@/lib/liquidity-helpers'
-import { getWrappedNativeAddress } from '@/services/tokens'
+import { getWrappedNativeAddress } from '@/lib/tokens'
 import { shouldSkipUnwrap } from '@/lib/wagmi'
 
 function buildDecreaseLiquidityParams(params: RemoveLiquidityParams): DecreaseLiquidityCallParams {
@@ -52,14 +52,6 @@ function encodeSweepToken(token: Address, amountMinimum: bigint, recipient: Addr
     })
 }
 
-/**
- * Build multicall for removing liquidity and collecting tokens
- * Sequence:
- * 1. decreaseLiquidity - removes liquidity, tokens stay in position manager
- * 2. collect - collect tokens to recipient (or address(this) if unwrapping)
- * 3. unwrapWETH9 - if one token is native, unwrap to native
- * 4. sweepToken - sweep remaining non-native token
- */
 export function buildRemoveWithCollectMulticall(
     decreaseParams: RemoveLiquidityParams,
     recipient: Address,
@@ -77,12 +69,9 @@ export function buildRemoveWithCollectMulticall(
     const token1IsWrappedNative = token1Address.toLowerCase() === wrappedNative.toLowerCase()
     const hasWrappedNative = token0IsWrappedNative || token1IsWrappedNative
 
-    // Check if we should skip unwrapping for this chain (KUB Mainnet has KYC on unwrap)
     const skipUnwrap = shouldSkipUnwrap(chainId)
 
     if (hasWrappedNative && !skipUnwrap) {
-        // Standard behavior: unwrap to native token for most chains
-        // Use address(0) as recipient for collect, then unwrap and sweep
         const collectParams: CollectCallParams = {
             tokenId: decreaseParams.tokenId,
             recipient: '0x0000000000000000000000000000000000000000' as Address, // collect to position manager
@@ -102,8 +91,6 @@ export function buildRemoveWithCollectMulticall(
             : decreaseParams.amount0Min
         data.push(encodeSweepToken(sweepToken, sweepAmount, recipient))
     } else {
-        // For KUB Mainnet (skipUnwrap=true) or non-native tokens:
-        // Collect wrapped tokens directly to recipient (no unwrapping)
         const collectParams: CollectCallParams = {
             tokenId: decreaseParams.tokenId,
             recipient,

@@ -117,11 +117,6 @@ class CreatorMarkerPaneView implements IPrimitivePaneView {
     }
 }
 
-/**
- * Pump.fun-style dev-trade badges: the creator's avatar in a small circle above
- * the candle, ring-colored green for a buy and red for a sell, stacked when a
- * candle has both.
- */
 export class CreatorMarkerPrimitive implements ISeriesPrimitive<Time> {
     avatar: HTMLCanvasElement | null = null
 
@@ -185,7 +180,6 @@ export class CreatorMarkerPrimitive implements ISeriesPrimitive<Time> {
         return points
     }
 
-    /** Returns the creator marker whose circle contains (x, y), or null. */
     markerAt(x: number, y: number): CreatorMarker | null {
         const hitRadius = RADIUS + RING_WIDTH
         for (const p of this.computePoints()) {

@@ -4,41 +4,17 @@ import { useMemo } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { isNativeToken } from '@/lib/wagmi'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { hasSettled } from '@/lib/query-status'
-import { isLaunchpadChain as isLaunchpadChainFn } from '@/lib/abis/bonding-curve-junoswap'
-import type { Token } from '@/types/tokens'
+import {
+    isLaunchpadChain as isLaunchpadChainFn,
+    fetchTokenSnapshotsByAddresses,
+    fetchV3TokenSnapshots,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import type { TokenType } from '@/types/portfolio'
 
 const STABLECOIN_SYMBOLS = new Set(['USDT', 'USDC', 'KUSDT', 'JUSDT', 'DAI', 'BUSD'])
-
-interface TokenSnapshotResponse {
-    tokenSnapshots: {
-        items: Array<{ tokenAddr: string; lastPriceUsd: string }>
-    }
-}
-
-interface V3TokenSnapshotResponse {
-    v3TokenSnapshots: {
-        items: Array<{ tokenAddr: string; lastPriceUsd: string }>
-    }
-}
-
-const TOKEN_SNAPSHOTS_QUERY = `
-  query TokenSnapshots($addresses: [String!]) {
-    tokenSnapshots(where: { tokenAddr_in: $addresses }, limit: 500) {
-      items { tokenAddr lastPriceUsd }
-    }
-  }
-`
-
-const V3_TOKEN_SNAPSHOTS_QUERY = `
-  query V3TokenSnapshots($chainId: Int!) {
-    v3TokenSnapshots(where: { chainId: $chainId }, limit: 500) {
-      items { tokenAddr lastPriceUsd }
-    }
-  }
-`
 
 export function useTokenPrices(
     tokens: Token[],
@@ -76,10 +52,9 @@ export function useTokenPrices(
         queryFn: async () => {
             if (!isLaunchpadChain || bondingCurveAddresses.length === 0) return []
             try {
-                const data = await ponderRequest<TokenSnapshotResponse>(TOKEN_SNAPSHOTS_QUERY, {
-                    addresses: bondingCurveAddresses,
+                return await fetchTokenSnapshotsByAddresses(ponderClient, {
+                    tokenAddrs: bondingCurveAddresses,
                 })
-                return data.tokenSnapshots.items
             } catch (e) {
                 if (isPonderError(e)) return []
                 throw e
@@ -87,8 +62,6 @@ export function useTokenPrices(
         },
         enabled: hasBondingCurveTokens,
         staleTime: 30_000,
-        // The address list grows as token discovery resolves; keep the prices we
-        // already have instead of blanking every held token's value on each rekey.
         placeholderData: keepPreviousData,
     })
 
@@ -96,13 +69,7 @@ export function useTokenPrices(
         queryKey: ['v3-token-snapshots', chainId],
         queryFn: async () => {
             try {
-                const data = await ponderRequest<V3TokenSnapshotResponse>(
-                    V3_TOKEN_SNAPSHOTS_QUERY,
-                    {
-                        chainId,
-                    }
-                )
-                return data.v3TokenSnapshots.items
+                return await fetchV3TokenSnapshots(ponderClient, { chainId })
             } catch (e) {
                 if (isPonderError(e)) return []
                 throw e
@@ -116,7 +83,7 @@ export function useTokenPrices(
     const snapshotMap = useMemo(() => {
         const map = new Map<string, number>()
         for (const s of snapshots ?? []) {
-            const price = parseFloat(s.lastPriceUsd)
+            const price = parseFloat(s.lastPriceUsd ?? '0')
             if (price > 0) map.set(s.tokenAddr.toLowerCase(), price)
         }
         return map
@@ -125,7 +92,7 @@ export function useTokenPrices(
     const v3SnapshotMap = useMemo(() => {
         const map = new Map<string, number>()
         for (const s of v3Snapshots ?? []) {
-            const price = parseFloat(s.lastPriceUsd)
+            const price = parseFloat(s.lastPriceUsd ?? '0')
             if (price > 0) map.set(s.tokenAddr.toLowerCase(), price)
         }
         return map

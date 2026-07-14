@@ -1,9 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import type { Token } from '@/types/token'
 import { Loader2 } from 'lucide-react'
-import type { Token } from '@/types/tokens'
-
 const SwapChart = dynamic(() => import('./swap-chart').then((mod) => mod.SwapChart), {
     ssr: false,
     loading: () => (

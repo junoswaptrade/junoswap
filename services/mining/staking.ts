@@ -1,7 +1,6 @@
 import { encodeFunctionData, encodeAbiParameters, keccak256, type Address, type Hex } from 'viem'
 import type { IncentiveKey, UnstakeParams } from '@/types/earn'
-import { UNISWAP_V3_STAKER_ABI } from '@/lib/abis/uniswap-v3-staker'
-
+import { UNISWAP_V3_STAKER_ABI } from '@coshi190/junoswap-sdk'
 export function computeIncentiveId(key: IncentiveKey): `0x${string}` {
     return keccak256(
         encodeAbiParameters(
@@ -17,10 +16,6 @@ export function computeIncentiveId(key: IncentiveKey): `0x${string}` {
     )
 }
 
-/**
- * Passed as the safeTransferFrom `data` arg: transferring the NFT to the staker with this
- * payload makes it deposit and stake in a single transaction.
- */
 export function encodeIncentiveKeyData(key: IncentiveKey): Hex {
     return encodeAbiParameters(
         [

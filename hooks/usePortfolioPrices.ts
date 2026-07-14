@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
+import type { Token } from '@/types/token'
 import { useTokenPrices } from '@/hooks/useTokenPrices'
-import type { Token } from '@/types/tokens'
 import type { TokenHolding } from '@/hooks/useMultiBalances'
 import type { TokenType } from '@/types/portfolio'
 

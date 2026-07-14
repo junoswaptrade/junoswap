@@ -3,7 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { NetWorthChart } from '@/components/portfolio/net-worth-chart'
 import type { PortfolioSummary } from '@/types/portfolio'
-import type { NetWorthPoint } from '@/services/net-worth-history'
+import type { NetWorthPoint } from '@/services/portfolio/net-worth-history'
 import { cn } from '@/lib/utils'
 
 interface PortfolioSummaryProps {

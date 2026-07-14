@@ -14,8 +14,7 @@ import type {
     PositionWithTokens,
     PositionDetails,
 } from '@/types/earn'
-import { getV3Config } from '@/lib/dex-config'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
+import { getV3Config, NONFUNGIBLE_POSITION_MANAGER_ABI } from '@coshi190/junoswap-sdk'
 import {
     buildMintParams,
     buildMintWithNativeMulticall,
@@ -28,7 +27,7 @@ import {
     buildCollectWithUnwrapMulticall,
     buildCollectFeesParams,
 } from '@/services/liquidity/fee-collection'
-import { getWrappedNativeAddress } from '@/services/tokens'
+import { getWrappedNativeAddress } from '@/lib/tokens'
 import {
     calculateMinAmounts,
     tickToSqrtPriceX96,

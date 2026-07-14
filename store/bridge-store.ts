@@ -1,6 +1,6 @@
 import { create } from 'zustand'
+import type { Token } from '@/types/token'
 import { devtools, persist } from 'zustand/middleware'
-import type { Token } from '@/types/tokens'
 import type { BridgeSettings, BridgeState } from '@/types/bridge'
 import type { Route } from '@lifi/types'
 
@@ -21,12 +21,12 @@ interface BridgeStore extends BridgeState {
 }
 
 const defaultSettings: BridgeSettings = {
-    slippage: 0.03, // 3%
+    slippage: 0.03,
 }
 
 const initialState: BridgeState = {
-    fromChainId: 56, // BSC
-    toChainId: 8453, // Base
+    fromChainId: 56,
+    toChainId: 8453,
     fromToken: null,
     toToken: null,
     amountIn: '',
@@ -42,8 +42,6 @@ export const useBridgeStore = create<BridgeStore>()(
                 ...initialState,
                 settings: defaultSettings,
 
-                // Can't bridge a chain to itself: if the new chain collides with
-                // the opposite side, null that side's token to force a re-pick.
                 setFromChainId: (chainId) =>
                     set((state) => ({
                         fromChainId: chainId,

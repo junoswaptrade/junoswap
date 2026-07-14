@@ -1,10 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { Token } from '@/types/tokens'
+import { ProtocolType } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import type { RoutingResult, RouteQuote } from '@/types/routing'
 import type { Address } from 'viem'
-import { ProtocolType } from '@/lib/dex-config'
 import { useUniV3Quote } from './useUniV3Quote'
 import { useUniV2Quote } from './useUniV2Quote'
 import { useUniV3MultiHopQuote } from './useUniV3MultiHopQuote'

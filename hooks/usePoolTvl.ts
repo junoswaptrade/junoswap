@@ -144,8 +144,6 @@ export function usePoolTvl(
             const isToken1Native = isAddr(pool.token1.address, wrappedNative)
 
             if (isToken0Native || isToken1Native) {
-                // Native-containing pools: use sqrtPriceX96-based computation
-                // (more reliable — uses pool's own on-chain price)
                 if (nativeUsdPrice) {
                     map[pool.address.toLowerCase()] = computeTvlUsd(
                         bal0,

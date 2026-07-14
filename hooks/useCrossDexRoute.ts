@@ -3,12 +3,10 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import type { Token } from '@/types/tokens'
-import { ProtocolType } from '@/lib/dex-config'
+import { ProtocolType, buildQuoteCall, type ContractCall } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { getIntermediaryTokens } from '@/lib/routing-config'
-import { UNISWAP_V2_ROUTER_ABI } from '@/lib/abis/uniswap-v2-router'
-import { UNISWAP_V3_QUOTER_V2_ABI } from '@/lib/abis/uniswap-v3-quoter'
-import { getSwapAddress } from '@/services/tokens'
+import { getSwapAddress } from '@/lib/tokens'
 import {
     candidateHopOptions,
     pickBestHopOption,
@@ -17,7 +15,6 @@ import {
     type LegCandidate,
 } from '@/services/dex/cross-dex-routing'
 
-/** Connectors tried for the middle token; kept small to bound the two-round quote fan-out. */
 const MAX_CROSS_CONNECTORS = 3
 
 interface UseCrossDexRouteParams {
@@ -33,39 +30,20 @@ interface UseCrossDexRouteResult {
     isLoading: boolean
 }
 
-type QuoteContract = {
-    address: Address
-    abi: typeof UNISWAP_V2_ROUTER_ABI | typeof UNISWAP_V3_QUOTER_V2_ABI
-    functionName: 'getAmountsOut' | 'quoteExactInputSingle'
-    args: readonly unknown[]
-    chainId: number
-}
+type QuoteContract = ContractCall & { chainId: number }
 
 function optionContract(o: HopOption, amount: bigint, chainId: number): QuoteContract {
-    if (o.protocol === ProtocolType.V3) {
-        return {
-            address: o.quoteAddress,
-            abi: UNISWAP_V3_QUOTER_V2_ABI,
-            functionName: 'quoteExactInputSingle',
-            args: [
-                {
-                    tokenIn: o.tokenIn,
-                    tokenOut: o.tokenOut,
-                    amountIn: amount,
-                    fee: o.fee,
-                    sqrtPriceLimitX96: 0n,
-                },
-            ],
-            chainId,
-        }
-    }
-    return {
-        address: o.quoteAddress,
-        abi: UNISWAP_V2_ROUTER_ABI,
-        functionName: 'getAmountsOut',
-        args: [amount, [o.tokenIn, o.tokenOut]],
+    const call = buildQuoteCall({
+        protocol: o.protocol,
         chainId,
-    }
+        dexId: o.dexId,
+        tokenIn: o.tokenIn,
+        tokenOut: o.tokenOut,
+        amountIn: amount,
+        fee: o.fee,
+    })
+    if (!call) throw new Error(`No quote call for ${o.dexId} on chain ${chainId}`)
+    return { ...call, chainId }
 }
 
 function parseOptionOut(
@@ -82,12 +60,6 @@ function parseOptionOut(
     return out != null && out > 0n ? out : null
 }
 
-/**
- * Finds the best two-hop cross-DEX leg tokenIn→connector→tokenOut, where each hop may be on a
- * different DEX. Quotes on-chain in two batched rounds (hop 1 at the full amount, hop 2 at hop 1's
- * best output), greedily picking the best DEX per hop. A cross-DEX leg can beat every single-DEX
- * route, since no single DEX router routes across DEXes.
- */
 export function useCrossDexRoute({
     tokenIn,
     tokenOut,
@@ -113,7 +85,6 @@ export function useCrossDexRoute({
         return out.slice(0, MAX_CROSS_CONNECTORS)
     }, [chainId, inW, outW])
 
-    // Round 1: quote tokenIn→connector at the full amount, every DEX option per connector.
     const round1 = useMemo(() => {
         const contracts: QuoteContract[] = []
         const layout: { connector: Address; options: HopOption[]; start: number }[] = []
@@ -131,7 +102,6 @@ export function useCrossDexRoute({
         query: { enabled: ready && round1.contracts.length > 0, staleTime: 10_000 },
     })
 
-    // Best hop-1 option (and its intermediate output) for each connector.
     const hop1PerConnector = useMemo(() => {
         if (!r1data) return []
         const result: { connector: Address; option: HopOption; mid: bigint }[] = []
@@ -143,7 +113,6 @@ export function useCrossDexRoute({
         return result
     }, [r1data, round1.layout])
 
-    // Round 2: quote connector→tokenOut at hop 1's best output, every DEX option per connector.
     const round2 = useMemo(() => {
         const contracts: QuoteContract[] = []
         const layout: {

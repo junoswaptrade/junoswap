@@ -3,8 +3,6 @@
 import { useMemo } from 'react'
 import { useTheme } from 'next-themes'
 
-// Re-encode a UTC unix time so lightweight-charts (which always formats as UTC)
-// renders the user's local wall-clock time on the axis and crosshair.
 export function toLocalChartTime(time: number): number {
     const d = new Date(time * 1000)
     return (

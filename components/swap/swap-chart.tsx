@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useMemo } from 'react'
+import type { Token } from '@/types/token'
 import {
     createChart,
     CandlestickSeries,
@@ -17,7 +18,6 @@ import type {
     Time as LWTime,
 } from 'lightweight-charts'
 import { Loader2 } from 'lucide-react'
-import type { Token } from '@/types/tokens'
 import { TIMEFRAMES } from '@/hooks/useTokenPriceHistory'
 import { useSwapPairChart } from '@/hooks/useSwapPairChart'
 import { useChartColors, toLocalChartTime } from '@/lib/lightweight-chart-theme'

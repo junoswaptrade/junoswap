@@ -1,7 +1,6 @@
 import { create } from 'zustand'
+import type { Token } from '@/types/token'
 import { createJSONStorage, devtools, persist } from 'zustand/middleware'
-import type { Token } from '@/types/tokens'
-
 interface CustomTokensStore {
     customTokens: Token[]
     addCustomToken: (token: Token) => void

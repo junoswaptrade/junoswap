@@ -10,17 +10,15 @@ import {
 } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
 import { zeroAddress, type Address } from 'viem'
-import { BONDING_CURVE_JUNOSWAP_ABI } from '@/lib/abis/bonding-curve-junoswap'
-import { ERC20_ABI } from '@/lib/abis/erc20'
+import { BONDING_CURVE_JUNOSWAP_ABI, ERC20_ABI, calculateMinOutput } from '@coshi190/junoswap-sdk'
 import { getAllowanceFunctionName } from '@/lib/tokens'
 import { useLaunchpadContract } from '@/hooks/useLaunchpadChainId'
-import { calculateBuyOutput, calculateSellOutput, calculateMinOutput } from '@/services/launchpad'
+import { calculateBuyOutput, calculateSellOutput } from '@/services/launchpad/launchpad'
 import { useSwapStore } from '@/store/swap-store'
 
 interface UseBondingCurveSwapExecutionParams {
     side: 'buy' | 'sell'
     tokenAddr: Address | null
-    // nativeAmount when side==='buy', tokenAmount when side==='sell'
     amount: bigint
     nativeReserve: bigint
     tokenReserve: bigint
@@ -32,7 +30,6 @@ interface UseBondingCurveSwapExecutionResult {
     execute: () => void
     canExecute: boolean
     expectedOut: bigint
-    // minTokenOut for buy, minNativeOut for sell
     minOut: bigint
     isPreparing: boolean
     isExecuting: boolean
@@ -59,11 +56,6 @@ export function useBondingCurveSwapExecution({
     const { chainId, address: bondingCurveAddress } = useLaunchpadContract()
     const publicClient = usePublicClient({ chainId })
 
-    // Gate the sell simulation on allowance so it re-runs after approval: the bonding curve's
-    // sell() does a transferFrom that reverts in simulation while allowance is 0, and the
-    // simulation's query key never changes on approval. Sharing this read's cache with
-    // useTokenApproval means its post-approval refetch flips `enabled` and re-simulates.
-    // Buys spend native value (no transferFrom), so the read is inert for them.
     const { data: allowance = 0n } = useReadContract({
         address: tokenAddr ?? undefined,
         abi: ERC20_ABI,
@@ -111,7 +103,6 @@ export function useBondingCurveSwapExecution({
         error: writeError,
     } = useWriteContract()
 
-    // Poll for receipt manually (more reliable than useWaitForTransactionReceipt on custom chains)
     const { data: receipt } = useQuery({
         queryKey: [`${side}-receipt`, hash],
         queryFn: async () => {

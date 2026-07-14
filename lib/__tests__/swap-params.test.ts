@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Token } from '@/types/tokens'
-
+import type { Token } from '@/types/token'
 const mockToken: Token = {
     address: '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`,
     symbol: 'TKN',
@@ -24,14 +23,11 @@ vi.mock('@/lib/tokens', () => ({
         if (addr === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') return mockToken
         return undefined
     }),
+    isValidTokenAddress: vi.fn((addr: string) => /^0x[a-fA-F0-9]{40}$/.test(addr)),
 }))
 
 vi.mock('@/lib/wagmi', () => ({
     isNativeToken: vi.fn((addr: string) => addr === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'),
-}))
-
-vi.mock('@/services/tokens', () => ({
-    isValidTokenAddress: vi.fn((addr: string) => /^0x[a-fA-F0-9]{40}$/.test(addr)),
 }))
 
 describe('lib/swap-params', () => {

@@ -13,7 +13,6 @@ services/       Pure business logic (no React)
 store/          Zustand stores
 lib/            Config & utilities
 types/          TypeScript type definitions by domain
-contracts/      Foundry Solidity project (BondingCurveJunoswap bonding curve) — git submodule
 
 ## Key conventions
 

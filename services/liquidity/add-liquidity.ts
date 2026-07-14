@@ -5,7 +5,7 @@ import type {
     MintCallParams,
     IncreaseLiquidityCallParams,
 } from '@/types/earn'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
+import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@coshi190/junoswap-sdk'
 import {
     calculateMinAmounts,
     calculateDeadline,
@@ -14,22 +14,15 @@ import {
     getTickSpacing,
 } from '@/lib/liquidity-helpers'
 import { isNativeToken } from '@/lib/wagmi'
-import { getWrappedNativeAddress } from '@/services/tokens'
+import { getWrappedNativeAddress } from '@/lib/tokens'
 
 export function buildMintParams(params: AddLiquidityParams): MintCallParams {
-    // V3 requires token0 < token1, so sort and reorder the amounts to match
     const [token0, token1] = sortTokens(params.token0, params.token1)
     const isToken0First = token0.address === params.token0.address
 
     const amount0Desired = isToken0First ? params.amount0Desired : params.amount1Desired
     const amount1Desired = isToken0First ? params.amount1Desired : params.amount0Desired
 
-    // For adding liquidity, set minimums to 0
-    // The contract determines actual amounts based on current price, which can differ
-    // significantly from desired amounts when price moves. Setting minimums to 0:
-    // 1. Allows the transaction to succeed with current price
-    // 2. The simulation catches any issues before submitting
-    // 3. Excess tokens are not taken (refunded for native tokens)
     const amount0Min = 0n
     const amount1Min = 0n
 
@@ -108,12 +101,6 @@ function encodeRefundETH(): Hex {
     })
 }
 
-/**
- * Build multicall data for minting with native token
- * When adding liquidity with native token (ETH/KUB), we need to:
- * 1. Call mint with wrapped native address
- * 2. Call refundETH to return excess native token
- */
 export function buildMintWithNativeMulticall(
     params: AddLiquidityParams,
     chainId: number
@@ -150,10 +137,6 @@ export function buildMintWithNativeMulticall(
     }
 }
 
-/**
- * Build multicall data for creating a new pool and minting the first position
- * Bundles: createAndInitializePoolIfNecessary + mint + refundETH (if native token)
- */
 export function buildPoolCreationMulticall(
     params: AddLiquidityParams,
     chainId: number,
@@ -163,15 +146,11 @@ export function buildPoolCreationMulticall(
     const token0IsNative = isNativeToken(params.token0.address)
     const token1IsNative = isNativeToken(params.token1.address)
 
-    // Sort tokens for createAndInitializePoolIfNecessary (must be sorted by address)
     const [sortedToken0, sortedToken1] = sortTokens(
         { address: params.token0.address },
         { address: params.token1.address }
     )
 
-    // sqrtPriceX96 is computed in terms of the user's token0/token1 order.
-    // If sortTokens reversed the order, the price direction is inverted —
-    // invert sqrtPriceX96 so it matches the pool's actual token0/token1 layout.
     const isReversed = sortedToken0.address.toLowerCase() !== params.token0.address.toLowerCase()
     const Q96 = 2n ** 96n
     const finalSqrtPriceX96 = isReversed ? (Q96 * Q96) / sqrtPriceX96 : sqrtPriceX96

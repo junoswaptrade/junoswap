@@ -13,7 +13,7 @@ import {
     isLeaderboardSupportedChain,
 } from '@/lib/leaderboard-utils'
 import { fetchAllReferralBindings } from '@/lib/swap-events'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
+import { isLaunchpadChain } from '@coshi190/junoswap-sdk'
 import type { PointsTrader, PointsTimePeriod, PointsSortKey, SortDirection } from '@/types/points'
 
 export interface UserPointsSummary {
@@ -60,9 +60,6 @@ export function usePointsData(
         queryKey: ['points-data', timePeriod, chainId],
         queryFn: async () => {
             const since = getTimeThreshold(timePeriod)
-            // Bonding-curve volume only exists on the launchpad chain; V3 (junoswap +
-            // external kublerx) and external V2 volume are indexed for all supported
-            // chains. Count every source where available.
             const [bondingCurve, v3, v2] = await Promise.all([
                 isLaunchpadChain(chainId) ? fetchSwapEvents(chainId, since) : Promise.resolve([]),
                 fetchV3SwapEvents(chainId, since),
@@ -110,8 +107,6 @@ export function usePointsData(
             }
         }
 
-        // A chain may have no indexed native/USD stable-pool price yet. Fall back
-        // to 0 (points/volume render as 0) rather than hanging on "loading".
         const effectiveNativeUsdPrice = nativeUsdPrice ?? 0
 
         const aggMap = aggregatePointsByAddress(rawSwapEvents)

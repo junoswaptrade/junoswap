@@ -7,19 +7,20 @@ import { ExternalLink, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 
 import { useUserActivity } from '@/hooks/useUserActivity'
 import { useNativeUsdPriceContext } from '@/components/launchpad/native-usd-price-provider'
-import { formatKub, formatTokenAmount, formatCompact } from '@/services/launchpad'
+import { formatKub, formatTokenAmount, formatCompact } from '@/services/launchpad/launchpad'
+import { NATIVE_TOKEN_ADDRESS } from '@coshi190/junoswap-sdk'
 import {
     formatTokenAmount as formatTokenAmountDecimals,
     formatDisplayAmount,
     findWrappedNativeAddress,
-} from '@/services/tokens'
+    findTokenByAddress,
+} from '@/lib/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { NATIVE_USD_STABLE } from '@/lib/routing-config'
 import { cn, formatTimeAgo, formatAddress } from '@/lib/utils'
 import { getExplorerTxUrl } from '@/lib/explorer'
 import { getChainMetadata } from '@/lib/wagmi'
-import { findTokenByAddress } from '@/lib/tokens'
-import { getProtocolMeta } from '@/types/dex'
+import { getProtocolMeta } from '@/lib/dex-meta'
 import { TokenIcon, TokenIconSkeleton } from '@/components/ui/token-icon'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
@@ -29,7 +30,7 @@ import { PaginationControls } from '@/components/ui/pagination'
 import type { ActivityEvent, ActivityLeg } from '@/types/portfolio'
 
 const PAGE_SIZE = 20
-const NATIVE_ADDRESS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+const NATIVE_ADDRESS: string = NATIVE_TOKEN_ADDRESS
 
 function groupByDate(events: ActivityEvent[]): { label: string; events: ActivityEvent[] }[] {
     const now = new Date()

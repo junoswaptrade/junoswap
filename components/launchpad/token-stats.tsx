@@ -1,8 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { formatCompact } from '@/services/launchpad'
-import type { FeeBreakdown } from '@/services/chart'
+import { formatCompact } from '@/services/launchpad/launchpad'
+import type { FeeBreakdown } from '@/services/launchpad/chart'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
 import { AthProgressBar } from './ath-progress-bar'

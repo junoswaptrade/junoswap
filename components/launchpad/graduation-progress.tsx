@@ -7,7 +7,7 @@ import {
     isReadyToGraduate,
     formatKub,
     formatKubRounded,
-} from '@/services/launchpad'
+} from '@/services/launchpad/launchpad'
 import { Button } from '@/components/ui/button'
 
 interface GraduationProgressProps {

@@ -1,75 +1,13 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
+import { isLaunchpadChain, fetchTokenList } from '@coshi190/junoswap-sdk'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
-import { ponderRequest } from '@/lib/ponder-client'
-import { mapLaunchTokenItem } from '@/services/launchpad'
+import { ponderClient } from '@/lib/ponder-client'
+import { mapLaunchTokenItem } from '@/services/launchpad/launchpad'
 import type { LaunchToken } from '@/types/launchpad'
 
-const TOKEN_LIST_QUERY = `
-  query TokenList($chainId: Int!) {
-    launchTokens(where: { chainId: $chainId }, orderBy: "createdTime", orderDirection: "desc") {
-      items {
-        tokenAddr
-        creator
-        name
-        symbol
-        logo
-        description
-        link1
-        link2
-        link3
-        createdTime
-        isGraduated
-        graduatedAt
-      }
-    }
-    tokenSnapshots(where: { chainId: $chainId }) {
-      items {
-        tokenAddr
-        lastSwapAt
-        marketCapNative
-        athMarketCapNative
-        lastPrice
-        price1dAgoTimestamp
-        priceChange1dPct
-      }
-    }
-  }
-`
-
 const STALENESS_TOLERANCE = 3600 // 1 hour — hide badge if reference price is >1h before the 24h mark
-
-interface TokenListResponse {
-    launchTokens: {
-        items: Array<{
-            tokenAddr: string
-            creator: string
-            name: string
-            symbol: string
-            logo: string
-            description: string
-            link1: string
-            link2: string
-            link3: string
-            createdTime: number
-            isGraduated: number
-            graduatedAt: number | null
-        }>
-    }
-    tokenSnapshots: {
-        items: Array<{
-            tokenAddr: string
-            lastSwapAt: number
-            marketCapNative: string
-            athMarketCapNative: string
-            lastPrice: string
-            price1dAgoTimestamp: number | null
-            priceChange1dPct: string | null
-        }>
-    }
-}
 
 interface SnapshotData {
     lastSwapAt: number
@@ -97,24 +35,21 @@ export function useTokenList(): UseTokenListResult {
     } = useQuery({
         queryKey: ['launchpad-token-list', chainId],
         queryFn: async () => {
-            const data = await ponderRequest<TokenListResponse>(TOKEN_LIST_QUERY, { chainId })
-            const tokens = data.launchTokens.items.map(
-                (t): LaunchToken => mapLaunchTokenItem(t, chainId)
-            )
+            const data = await fetchTokenList(ponderClient, { chainId })
+            const tokens = data.tokens.map((t): LaunchToken => mapLaunchTokenItem(t, chainId))
             const now = Math.floor(Date.now() / 1000)
             const cutoff = now - 86400
             const snapshotMap = new Map<string, SnapshotData>()
-            for (const s of data.tokenSnapshots.items) {
+            for (const s of data.snapshots) {
                 const changePct = s.priceChange1dPct ? parseFloat(s.priceChange1dPct) : null
-                // Hide badge if the reference price timestamp is too far from the 24h mark
                 const isStale =
                     s.price1dAgoTimestamp == null ||
                     s.price1dAgoTimestamp < cutoff - STALENESS_TOLERANCE
                 snapshotMap.set(s.tokenAddr.toLowerCase(), {
-                    lastSwapAt: s.lastSwapAt,
-                    marketCapNative: s.marketCapNative,
-                    athMarketCapNative: s.athMarketCapNative,
-                    lastPrice: s.lastPrice,
+                    lastSwapAt: s.lastSwapAt ?? 0,
+                    marketCapNative: s.marketCapNative ?? '0',
+                    athMarketCapNative: s.athMarketCapNative ?? '0',
+                    lastPrice: s.lastPrice ?? '0',
                     priceChange1dPct: isStale ? null : changePct,
                 })
             }

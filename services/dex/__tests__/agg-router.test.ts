@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { decodeAbiParameters, size, type Address } from 'viem'
-import { ProtocolType } from '@/lib/dex-config'
+import { ProtocolType } from '@coshi190/junoswap-sdk'
 import type { RouteQuote } from '@/types/routing'
 
 const NATIVE = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as Address
@@ -15,16 +15,8 @@ const REFERRER = '0x000000000000000000000000000000000000CAFE' as Address
 const SKIP_UNWRAP_CHAIN = 96
 const UNWRAP_CHAIN = 8899
 
-vi.mock('@/services/tokens', () => ({
-    getSwapAddress: vi.fn((addr: string) => (addr === NATIVE ? WNATIVE : addr)),
-}))
-
-vi.mock('@/lib/wagmi', () => ({
-    isNativeToken: vi.fn((addr: string) => addr.toLowerCase() === NATIVE),
-    shouldSkipUnwrap: vi.fn((chainId: number) => chainId === SKIP_UNWRAP_CHAIN),
-}))
-
-vi.mock('@/lib/dex-config', () => ({
+vi.mock('@coshi190/junoswap-sdk', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
     ProtocolType: { V2: 'v2', V3: 'v3' },
     getV2Config: vi.fn((_chainId: number, dexId: string) =>
         dexId === 'udonswap' ? { factory: V2_FACTORY } : undefined

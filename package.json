@@ -12,9 +12,10 @@
         "test": "vitest",
         "test:e2e": "playwright test",
         "prepare": "husky",
-        "clean": "rm -rf .next out build tsconfig.tsbuildinfo coverage playwright-report test-results .vercel contracts/cache contracts/out contracts/broadcast indexer/.ponder indexer/generated"
+        "clean": "rm -rf .next out build tsconfig.tsbuildinfo coverage playwright-report test-results .vercel"
     },
     "dependencies": {
+        "@coshi190/junoswap-sdk": "^0.3.0",
         "@lifi/sdk": "^3.16.3",
         "@metamask/jazzicon": "^2.0.0",
         "@radix-ui/react-avatar": "^1.1.11",

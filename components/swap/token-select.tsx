@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import type { Token } from '@/types/token'
 import { useChainId } from 'wagmi'
-import type { Token } from '@/types/tokens'
 import { useTokenBalances } from '@/hooks/useTokenBalance'
 import { useTokenMetadata } from '@/hooks/useTokenMetadata'
 import { useCustomTokensStore } from '@/store/custom-tokens-store'
@@ -20,7 +20,7 @@ import { TokenIcon, TokenIconSkeleton } from '@/components/ui/token-icon'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ChevronDown, Search, Copy, Loader2, Trash2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatBalance, isValidTokenAddress } from '@/services/tokens'
+import { formatBalance, isValidTokenAddress } from '@/lib/tokens'
 import { toastSuccess } from '@/lib/toast'
 
 function truncateAddress(address: string): string {

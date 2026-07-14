@@ -2,67 +2,22 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { fetchNativeUsdPriceSnapshots } from '@coshi190/junoswap-sdk'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
 import { hasSettled } from '@/lib/query-status'
-import { sanitizePricePoints } from '@/services/net-worth-history'
+import { sanitizePricePoints } from '@/services/portfolio/net-worth-history'
 
 export interface NativeUsdPricePoint {
     timestamp: number
     price: number
 }
 
-interface NativeUsdPriceSnapshotsPage {
-    nativeUsdPriceSnapshots: {
-        pageInfo: {
-            hasNextPage: boolean
-            endCursor: string | null
-        }
-        items: Array<{
-            price: string
-            timestamp: number
-        }>
-    }
-}
-
-const PAGE_SIZE = 1000
-
-const SNAPSHOTS_QUERY = `
-  query NativeUsdPriceSnapshots($chainId: Int!, $after: String) {
-    nativeUsdPriceSnapshots(
-      where: { chainId: $chainId },
-      orderBy: "timestamp",
-      orderDirection: "asc",
-      limit: ${PAGE_SIZE},
-      after: $after
-    ) {
-      pageInfo { hasNextPage endCursor }
-      items {
-        price
-        timestamp
-      }
-    }
-  }
-`
-
 async function fetchAllSnapshots(chainId: number): Promise<NativeUsdPricePoint[]> {
-    const points: NativeUsdPricePoint[] = []
-    let after: string | null = null
-
-    for (;;) {
-        const data: NativeUsdPriceSnapshotsPage = await ponderRequest(SNAPSHOTS_QUERY, {
-            chainId,
-            after,
-        })
-        const { pageInfo, items } = data.nativeUsdPriceSnapshots
-        for (const item of items) {
-            points.push({ timestamp: item.timestamp, price: parseFloat(item.price) })
-        }
-        if (!pageInfo.hasNextPage || !pageInfo.endCursor) break
-        after = pageInfo.endCursor
-    }
-
-    return sanitizePricePoints(points)
+    const rows = await fetchNativeUsdPriceSnapshots(ponderClient, { chainId })
+    return sanitizePricePoints(
+        rows.map((r) => ({ timestamp: r.timestamp, price: parseFloat(r.price) }))
+    )
 }
 
 export function makePriceAt(

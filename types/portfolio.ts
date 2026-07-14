@@ -1,5 +1,5 @@
-import type { Token } from './tokens'
 import type { LaunchToken } from './launchpad'
+import type { Token } from '@/types/token'
 
 export type TokenType = 'static' | 'graduated' | 'bonding_curve'
 
@@ -10,7 +10,6 @@ export interface CreatedToken {
     creatorFeeClaimedNative: bigint
     creatorFeeToken: bigint
     creatorFeeClaimedToken: bigint
-    /** display-only USD estimate for the token-denominated fee, from tokenSnapshot.lastPriceUsd */
     tokenUsdPrice: number
 }
 

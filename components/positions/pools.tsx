@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { Token } from '@/types/token'
 import { cn } from '@/lib/utils'
 import { useAccount, useChainId } from 'wagmi'
 import { ArrowDown, ArrowUp, Plus, Search } from 'lucide-react'
@@ -19,8 +20,7 @@ import {
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ConnectModal } from '@/components/web3/connect-modal'
-import { getDefaultPairTokens } from '@/lib/tokens'
-import { getDisplayToken } from '@/services/tokens'
+import { getDefaultPairTokens, getDisplayToken } from '@/lib/tokens'
 import { useCommonPools } from '@/hooks/usePools'
 import { useGraduatedPools } from '@/hooks/useGraduatedPools'
 import { useAllPools, PONDER_INDEXED_CHAINS } from '@/hooks/useAllPools'
@@ -29,8 +29,6 @@ import { usePoolVolume } from '@/hooks/usePoolVolume'
 import { formatFeeTier } from '@/lib/liquidity-helpers'
 import { formatTvl, formatApr, calculateApr } from '@/lib/format'
 import type { V3PoolData } from '@/types/earn'
-import type { Token } from '@/types/tokens'
-
 type SortKey = 'tvl' | 'apr' | 'vol1d' | 'vol30d'
 type SortDir = 'asc' | 'desc'
 

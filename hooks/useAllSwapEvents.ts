@@ -3,61 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useChainId } from 'wagmi'
 import type { Address } from 'viem'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
-import { ponderRequest } from '@/lib/ponder-client'
+import { isLaunchpadChain, fetchRecentSwaps } from '@coshi190/junoswap-sdk'
+import { ponderClient } from '@/lib/ponder-client'
 import { resolveLaunchpadLogo } from '@/lib/logo'
 import { applyLaunchpadTokenOverride } from '@/lib/launchpad-token-config'
 import type { EnrichedSwapEvent } from '@/types/launchpad'
-
-const ALL_SWAP_EVENTS_QUERY = `
-  query AllSwapEvents($chainId: Int!) {
-    swapEvents(where: { chainId: $chainId }, orderBy: "timestamp", orderDirection: "desc", limit: 50) {
-      items {
-        tokenAddr
-        sender
-        isBuy
-        amountIn
-        amountOut
-        reserveIn
-        reserveOut
-        timestamp
-        transactionHash
-      }
-    }
-    launchTokens(where: { chainId: $chainId }) {
-      items {
-        tokenAddr
-        logo
-        name
-        symbol
-      }
-    }
-  }
-`
-
-interface SwapEventsResponse {
-    swapEvents: {
-        items: Array<{
-            tokenAddr: string
-            sender: string
-            isBuy: number
-            amountIn: string
-            amountOut: string
-            reserveIn: string
-            reserveOut: string
-            timestamp: number
-            transactionHash: string
-        }>
-    }
-    launchTokens: {
-        items: Array<{
-            tokenAddr: string
-            logo: string
-            name: string
-            symbol: string
-        }>
-    }
-}
 
 export function useAllSwapEvents() {
     const chainId = useChainId()
@@ -70,10 +20,10 @@ export function useAllSwapEvents() {
     } = useQuery({
         queryKey: ['all-swap-events', chainId],
         queryFn: async (): Promise<EnrichedSwapEvent[]> => {
-            const data = await ponderRequest<SwapEventsResponse>(ALL_SWAP_EVENTS_QUERY, { chainId })
+            const { swaps, tokens } = await fetchRecentSwaps(ponderClient, { chainId })
 
             const tokenMeta = new Map<string, { logo: string; name: string; symbol: string }>()
-            for (const raw of data.launchTokens.items) {
+            for (const raw of tokens) {
                 const token = applyLaunchpadTokenOverride(raw, chainId)
                 tokenMeta.set(token.tokenAddr.toLowerCase(), {
                     logo: resolveLaunchpadLogo(token.logo),
@@ -82,7 +32,7 @@ export function useAllSwapEvents() {
                 })
             }
 
-            return data.swapEvents.items.map((e): EnrichedSwapEvent => {
+            return swaps.map((e): EnrichedSwapEvent => {
                 const meta = tokenMeta.get(e.tokenAddr.toLowerCase())
                 return {
                     blockNumber: BigInt(0),

@@ -1,10 +1,5 @@
 import type { Address } from 'viem'
-import type { Token } from './tokens'
-
-/**
- * Raw V3 position data straight from the NonfungiblePositionManager contract.
- * Enriched into PositionWithTokens, then PositionDetails (adds live pool state).
- */
+import type { Token } from '@/types/token'
 export interface V3Position {
     tokenId: bigint
     nonce: bigint
@@ -107,7 +102,6 @@ interface RangePresetConfig {
     tickRange?: number // Percentage of ticks from current (e.g., 50 means ±50% from current)
 }
 
-/** Mirrors the NonfungiblePositionManager.mint argument struct. */
 export interface MintCallParams {
     token0: Address
     token1: Address
@@ -146,7 +140,6 @@ export interface CollectCallParams {
     amount1Max: bigint
 }
 
-/** Passed as amount0Max/amount1Max to collect all accrued fees. */
 export const MAX_UINT128 = 2n ** 128n - 1n
 
 export const TICK_SPACING: Record<number, number> = {
@@ -196,7 +189,6 @@ export const DEFAULT_RANGE_CONFIG: RangeConfig = {
     priceUpper: '0',
 }
 
-/** Matches the IncentiveKey struct in the V3 Staker contract. */
 export interface IncentiveKey {
     rewardToken: Address
     pool: Address

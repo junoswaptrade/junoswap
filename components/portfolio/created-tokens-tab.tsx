@@ -21,7 +21,7 @@ import { useNativeUsdPriceContext } from '@/components/launchpad/native-usd-pric
 import { CreateTokenDialog } from '@/components/launchpad/create-token-dialog'
 import { Plus } from 'lucide-react'
 import { useCreatedTokens } from '@/hooks/useCreatedTokens'
-import { formatCompact, formatKub, formatTokenAmount } from '@/services/launchpad'
+import { formatCompact, formatKub, formatTokenAmount } from '@/services/launchpad/launchpad'
 import type { CreatedToken } from '@/types/portfolio'
 
 function FeeAmount({

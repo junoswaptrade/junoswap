@@ -1,8 +1,8 @@
 import type { Address } from 'viem'
-import type { DEXType } from './dex'
+import { ProtocolType } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import type { DEXType } from '@/lib/dex-meta'
 import type { SwapRoute } from './routing'
-import { ProtocolType } from '@/lib/dex-config'
-
 export interface SwapParams {
     tokenIn: Address
     tokenOut: Address
@@ -15,12 +15,9 @@ export interface SwapParams {
     fees?: number[] // Fee tiers for V3 multi-hop (length = path.length - 1)
 }
 
-export interface QuoteResult {
-    amountOut: bigint
-    sqrtPriceX96After: bigint
-    initializedTicksCrossed: number
-    gasEstimate: bigint
-}
+import type { QuoteResult } from '@coshi190/junoswap-sdk'
+
+export type { QuoteResult }
 
 export interface DexQuote {
     dexId: DEXType
@@ -62,7 +59,6 @@ export interface SwapState {
     isUpdatingFromUrl: boolean
 }
 
-/** URL format: /swap?input={address}&output={address}&amount={string}&chain={chainId}&ref={address} */
 export interface SwapUrlParams {
     input?: string // Token address
     output?: string // Token address
@@ -79,5 +75,3 @@ export interface ParsedSwapUrlParams {
     isValid: boolean
     errors: string[]
 }
-
-import type { Token } from './tokens'

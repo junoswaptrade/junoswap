@@ -4,9 +4,7 @@ import { useMemo } from 'react'
 import { useReadContracts, useChainId } from 'wagmi'
 import type { Address } from 'viem'
 import type { StakedPosition, Incentive, DepositInfo, PositionWithTokens } from '@/types/earn'
-import { getV3StakerAddress } from '@/lib/dex-config'
-import { UNISWAP_V3_STAKER_ABI } from '@/lib/abis/uniswap-v3-staker'
-
+import { getV3StakerAddress, UNISWAP_V3_STAKER_ABI } from '@coshi190/junoswap-sdk'
 export function useStakedPositions(
     positions: PositionWithTokens[],
     incentives: Incentive[],

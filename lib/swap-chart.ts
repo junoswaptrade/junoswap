@@ -11,22 +11,10 @@ export type SwapPairKind =
 
 export interface SwapPairClassification {
     kind: SwapPairKind
-    /** Token charted as the numerator (its price is shown). */
     baseAddr?: Address
-    /** Token the price is denominated in. */
     quoteAddr?: Address
 }
 
-/**
- * Classify a swap pair into how its price chart is sourced. Every non-native token has a
- * "native per token" series from its Junoswap V3 swaps (v3SwapEvents); a pair's price is
- * baseNP / quoteNP (native quote ⇒ 1). Kinds:
- *   - native↔stable → native priced in USD (richer nativeUsdPriceSnapshots path)
- *   - token↔native  → token priced in native
- *   - token↔stable  → token priced in the stable (≈ USD)
- *   - token↔token   → base (tokenIn) priced in quote (tokenOut)
- * native↔native, stable↔stable, and missing/unknown chains are unsupported.
- */
 export function classifySwapPair(
     chainId: number,
     tokenInAddr: Address | undefined,
@@ -47,7 +35,6 @@ export function classifySwapPair(
     const inNative = isNativeSide(tokenInAddr)
     const outNative = isNativeSide(tokenOutAddr)
 
-    // native↔native (e.g. KUB/KKUB) has no price to show.
     if (inNative && outNative) return { kind: 'unsupported' }
 
     if (inNative || outNative) {
@@ -59,7 +46,6 @@ export function classifySwapPair(
         return { kind: 'token-native', baseAddr: otherAddr, quoteAddr: nativeAddr }
     }
 
-    // Neither side is native.
     const inStable = isStableSide(tokenInAddr)
     const outStable = isStableSide(tokenOutAddr)
 

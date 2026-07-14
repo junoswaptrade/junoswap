@@ -4,11 +4,14 @@ import { useMemo } from 'react'
 import { useReadContract, useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
 import { TOKEN_LISTS } from '@/lib/tokens'
-import type { Token } from '@/types/tokens'
+import {
+    getFeeTiers,
+    getV3Config,
+    UNISWAP_V3_FACTORY_ABI,
+    UNISWAP_V3_POOL_ABI,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import type { V3PoolData } from '@/types/earn'
-import { getV3Config } from '@/lib/dex-config'
-import { UNISWAP_V3_FACTORY_ABI } from '@/lib/abis/uniswap-v3-factory'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
 import { getTickSpacing } from '@/lib/liquidity-helpers'
 import { sortTokens } from '@/lib/liquidity-helpers'
 
@@ -109,7 +112,7 @@ function usePoolsForPair(
 } {
     const effectiveChainId = chainId ?? token0?.chainId ?? token1?.chainId ?? 1
     const dexConfig = getV3Config(effectiveChainId)
-    const feeTiers = useMemo(() => dexConfig?.feeTiers ?? [100, 500, 3000, 10000], [dexConfig])
+    const feeTiers = useMemo(() => getFeeTiers(dexConfig), [dexConfig])
     const [sortedToken0, sortedToken1] = useMemo(() => {
         if (!token0 || !token1) return [null, null]
         return sortTokens(token0, token1)
@@ -186,13 +189,8 @@ function usePoolsForPair(
     }
 }
 
-/**
- * Discover pools by checking all pairs of the first 6 tokens in the token list.
- * Used for chains without Ponder indexing.
- */
 export function useCommonPools(chainId: number): { pools: V3PoolData[]; isLoading: boolean } {
     const tokens = TOKEN_LISTS[chainId] ?? []
-    // Get first 6 tokens to check pools (always use fixed number for stable hook count)
     const t0 = tokens[0] as Token | null
     const t1 = tokens[1] as Token | null
     const t2 = tokens[2] as Token | null
@@ -200,7 +198,6 @@ export function useCommonPools(chainId: number): { pools: V3PoolData[]; isLoadin
     const t4 = tokens[4] as Token | null
     const t5 = tokens[5] as Token | null
 
-    // Call constant number of hooks (15 pairs for 6 tokens)
     const p01 = usePoolsForPair(t0, t1, chainId)
     const p02 = usePoolsForPair(t0, t2, chainId)
     const p03 = usePoolsForPair(t0, t3, chainId)

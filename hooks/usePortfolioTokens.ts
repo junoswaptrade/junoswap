@@ -3,50 +3,13 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { fetchHolderBalances, fetchLaunchTokensByAddresses } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { resolveLaunchpadLogo } from '@/lib/logo'
 import { applyLaunchpadTokenOverride } from '@/lib/launchpad-token-config'
 import { hasSettled } from '@/lib/query-status'
 import { useTokenDiscovery } from '@/hooks/useTokenDiscovery'
-import type { Token } from '@/types/tokens'
-
-interface TokenHolderResponse {
-    tokenHolders: {
-        items: Array<{
-            tokenAddr: string
-            balance: string
-        }>
-    }
-}
-
-interface LaunchTokenResponse {
-    launchTokens: {
-        items: Array<{
-            tokenAddr: string
-            name: string
-            symbol: string
-            logo: string
-            isGraduated: number
-        }>
-    }
-}
-
-const USER_TOKENS_QUERY = `
-  query UserTokens($address: String!) {
-    tokenHolders(where: { address: $address }, limit: 100) {
-      items { tokenAddr balance }
-    }
-  }
-`
-
-const LAUNCH_TOKENS_QUERY = `
-  query LaunchTokens($addresses: [String!]) {
-    launchTokens(where: { tokenAddr_in: $addresses }, limit: 100) {
-      items { tokenAddr name symbol logo isGraduated }
-    }
-  }
-`
-
 export function usePortfolioTokens(chainId: number, userAddress?: Address) {
     const {
         allTokens: discoveredTokens,
@@ -60,10 +23,10 @@ export function usePortfolioTokens(chainId: number, userAddress?: Address) {
         queryFn: async () => {
             if (!userAddress || !isLaunchpadChain) return []
             try {
-                const data = await ponderRequest<TokenHolderResponse>(USER_TOKENS_QUERY, {
+                const holdings = await fetchHolderBalances(ponderClient, {
                     address: userAddress.toLowerCase(),
                 })
-                return data.tokenHolders.items
+                return holdings
                     .filter((h) => BigInt(h.balance) > 0n)
                     .map((h) => h.tokenAddr as Address)
             } catch (e) {
@@ -92,11 +55,11 @@ export function usePortfolioTokens(chainId: number, userAddress?: Address) {
             if (unknownAddrs.length === 0)
                 return new Map<string, { name: string; symbol: string; logo: string }>()
             try {
-                const data = await ponderRequest<LaunchTokenResponse>(LAUNCH_TOKENS_QUERY, {
-                    addresses: unknownAddrs.map((a) => a.toLowerCase()),
+                const rows = await fetchLaunchTokensByAddresses(ponderClient, {
+                    tokenAddrs: unknownAddrs.map((a) => a.toLowerCase()),
                 })
                 const map = new Map<string, { name: string; symbol: string; logo: string }>()
-                for (const raw of data.launchTokens.items) {
+                for (const raw of rows) {
                     const t = applyLaunchpadTokenOverride(raw, chainId)
                     map.set(t.tokenAddr.toLowerCase(), {
                         name: t.name ?? '',

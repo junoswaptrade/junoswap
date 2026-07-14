@@ -14,8 +14,6 @@ export default defineConfig({
             'services/__tests__/**/*.test.ts',
             'services/**/__tests__/**/*.test.ts',
             'store/__tests__/**/*.test.ts',
-            'hooks/__tests__/**/*.test.ts',
-            'indexer/__tests__/**/*.test.ts',
         ],
         globals: true,
         coverage: {

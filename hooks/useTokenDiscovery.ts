@@ -6,97 +6,49 @@ import type { Address } from 'viem'
 import { getTokensForChain } from '@/lib/tokens'
 import { isNativeToken } from '@/lib/wagmi'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { resolveLaunchpadLogo } from '@/lib/logo'
 import { applyLaunchpadTokenOverride } from '@/lib/launchpad-token-config'
-import { isLaunchpadChain as isLaunchpadChainFn } from '@/lib/abis/bonding-curve-junoswap'
+import {
+    isLaunchpadChain as isLaunchpadChainFn,
+    fetchBondingCurveTokens,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { hasSettled } from '@/lib/query-status'
 import { useGraduatedTokens } from '@/hooks/useGraduatedTokens'
-import type { Token } from '@/types/tokens'
+import { useV3Tokens } from '@/hooks/useV3Tokens'
 import type { TokenType } from '@/types/portfolio'
-
-interface V3TokenResponse {
-    v3Tokens: {
-        items: Array<{
-            id: string
-            chainId: number
-            address: string
-            symbol: string
-            name: string
-            decimals: number
-        }>
-    }
-}
-
-interface BondingCurveTokenResponse {
-    launchTokens: {
-        items: Array<{
-            tokenAddr: string
-            name: string
-            symbol: string
-            logo: string
-        }>
-    }
-}
-
-const V3_TOKENS_QUERY = `
-  query V3Tokens($chainId: Int!) {
-    v3Tokens(where: { chainId: $chainId }, limit: 500) {
-      items {
-        id chainId address symbol name decimals
-      }
-    }
-  }
-`
-
-const BONDING_CURVE_TOKENS_QUERY = `
-  query BondingCurveTokens($chainId: Int!) {
-    launchTokens(where: { isGraduated: 0, chainId: $chainId }) {
-      items { tokenAddr name symbol logo }
-    }
-  }
-`
 
 export function useTokenDiscovery(chainId: number) {
     const staticTokens = useMemo(() => getTokensForChain(chainId), [chainId])
     const { tokens: graduatedTokens, isSettled: isGraduatedSettled } = useGraduatedTokens(chainId)
     const isLaunchpadChain = isLaunchpadChainFn(chainId)
+    const { tokens: v3Rows, isSettled: isV3Settled } = useV3Tokens(chainId)
 
-    const { data: v3Tokens } = useQuery({
-        queryKey: ['v3-tokens', chainId],
-        queryFn: async () => {
-            try {
-                const data = await ponderRequest<V3TokenResponse>(V3_TOKENS_QUERY, { chainId })
-                return data.v3Tokens.items
-                    .filter((t) => t.symbol || t.name)
-                    .map(
-                        (t): Token => ({
-                            address: t.address as Address,
-                            symbol: t.symbol || '???',
-                            name: t.name || '',
-                            decimals: t.decimals || 18,
-                            chainId,
-                            logo: undefined,
-                        })
-                    )
-            } catch (e) {
-                if (isPonderError(e)) return []
-                throw e
-            }
-        },
-        staleTime: 60_000,
-    })
+    const v3Tokens = useMemo(
+        () =>
+            v3Rows
+                .filter((t) => t.symbol || t.name)
+                .map(
+                    (t): Token => ({
+                        address: t.address as Address,
+                        symbol: t.symbol || '???',
+                        name: t.name || '',
+                        decimals: t.decimals || 18,
+                        chainId,
+                        logo: undefined,
+                    })
+                ),
+        [v3Rows, chainId]
+    )
 
     const { data: bondingCurveTokens } = useQuery({
         queryKey: ['bonding-curve-tokens', chainId],
         queryFn: async () => {
             if (!isLaunchpadChain) return []
             try {
-                const data = await ponderRequest<BondingCurveTokenResponse>(
-                    BONDING_CURVE_TOKENS_QUERY,
-                    { chainId }
-                )
-                return data.launchTokens.items
+                const items = await fetchBondingCurveTokens(ponderClient, { chainId })
+                return items
                     .map((raw) => applyLaunchpadTokenOverride(raw, chainId))
                     .map(
                         (t): Token => ({
@@ -172,9 +124,7 @@ export function useTokenDiscovery(chainId: number) {
     const wrappedNative = INTERMEDIARY_TOKENS[chainId]?.wrappedNative
 
     const isSettled =
-        isGraduatedSettled &&
-        hasSettled(true, v3Tokens) &&
-        hasSettled(isLaunchpadChain, bondingCurveTokens)
+        isGraduatedSettled && isV3Settled && hasSettled(isLaunchpadChain, bondingCurveTokens)
 
     return { allTokens, erc20Tokens, getTokenType, isLaunchpadChain, wrappedNative, isSettled }
 }

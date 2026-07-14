@@ -65,7 +65,6 @@ export function TokenCard({ portfolioToken }: TokenCardProps) {
                                 {formatBalanceShort(formattedBalance)}
                             </span>
 
-                            {/* Action button — overlays the symbol & balance on hover */}
                             <Link
                                 href={href}
                                 aria-label={

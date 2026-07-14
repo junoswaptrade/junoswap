@@ -6,24 +6,12 @@ import { usePublicClient } from 'wagmi'
 import type { Address } from 'viem'
 import type { V3Position } from '@/types/earn'
 import { MAX_UINT128 } from '@/types/earn'
-import { getV3Config } from '@/lib/dex-config'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
-
+import { getV3Config, NONFUNGIBLE_POSITION_MANAGER_ABI } from '@coshi190/junoswap-sdk'
 export interface PositionFees {
     fees0: bigint
     fees1: bigint
 }
 
-/**
- * Live unclaimed fees per position, keyed by tokenId string.
- *
- * The `positions().tokensOwed0/1` checkpoint only updates when the owner pokes the
- * position, so it reads 0 for an in-range position that earned fees purely from swaps.
- * Instead we statically simulate `collect()` (from = owner, MAX_UINT128 maxes): the
- * NonfungiblePositionManager pokes the pool via `burn(0)` before returning the owed
- * amounts, so the result reflects fees accrued up to the latest block. On any revert
- * (e.g. owner not authorized for a staked position) we fall back to `tokensOwed0/1`.
- */
 export function usePositionFees(
     positions: V3Position[],
     owner: Address | undefined,

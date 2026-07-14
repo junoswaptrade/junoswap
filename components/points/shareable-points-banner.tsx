@@ -4,7 +4,7 @@ import { useRef } from 'react'
 import { useShareableImage } from '@/hooks/useShareableImage'
 import { Jazzicon } from '@/components/web3/jazzicon'
 import { formatAddress } from '@/lib/utils'
-import { formatCompact } from '@/services/launchpad'
+import { formatCompact } from '@/services/launchpad/launchpad'
 import { getTierForPoints } from '@/types/points'
 import { Download } from 'lucide-react'
 import type { UserPointsSummary } from '@/hooks/usePointsData'
@@ -120,7 +120,6 @@ export function ShareablePointsBanner({
 
     return (
         <div>
-            {/* The card that gets captured as an image */}
             <div ref={cardRef} className="overflow-hidden rounded-xl bg-[#0a0e14]">
                 <div
                     className="relative overflow-hidden rounded-xl border border-white/10"

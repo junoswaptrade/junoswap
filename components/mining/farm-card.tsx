@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { TokenIcon, TokenIconPair } from '@/components/ui/token-icon'
 import { ConnectModal } from '@/components/web3/connect-modal'
-import { formatTokenAmount, getDisplayToken } from '@/services/tokens'
+import { formatTokenAmount, getDisplayToken } from '@/lib/tokens'
 import { useTokenPriceMap } from '@/hooks/useTokenPriceMap'
 import {
     formatTimeRemaining,

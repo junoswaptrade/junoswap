@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { TokenIconSkeleton } from '@/components/ui/token-icon'
 import { MiningFarmCard } from './farm-card'
 import { useIncentives } from '@/hooks/useIncentives'
-import { getV3StakerAddress } from '@/lib/dex-config'
+import { getV3StakerAddress } from '@coshi190/junoswap-sdk'
 import { KNOWN_INCENTIVES } from '@/lib/mining-constants'
 import type { Incentive } from '@/types/earn'
 

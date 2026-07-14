@@ -7,7 +7,7 @@ import { useAccount } from 'wagmi'
 
 import { useTokenSwapEvents } from '@/hooks/useTokenSwapEvents'
 import { useDebounce } from '@/hooks/useDebounce'
-import { formatKub, formatTokenAmount, formatCompact } from '@/services/launchpad'
+import { formatKub, formatTokenAmount, formatCompact } from '@/services/launchpad/launchpad'
 import { cn, formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { getExplorerTxUrl } from '@/lib/explorer'

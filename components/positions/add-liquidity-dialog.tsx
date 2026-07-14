@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import type { Token } from '@/types/tokens'
+import { getV3Config, FEE_TIERS } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { useAccount, useChainId } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -15,9 +16,8 @@ import { usePool } from '@/hooks/usePools'
 import { useAddLiquidity } from '@/hooks/useLiquidity'
 import { useTokenApproval } from '@/hooks/useTokenApproval'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
-import { getV3Config, FEE_TIERS } from '@/lib/dex-config'
 import { getChainMetadata } from '@/lib/wagmi'
-import { parseTokenAmount, formatBalance, formatTokenAmount } from '@/services/tokens'
+import { parseTokenAmount, formatBalance, formatTokenAmount } from '@/lib/tokens'
 import {
     tickToSqrtPriceX96,
     priceToSqrtPriceX96,
@@ -612,7 +612,6 @@ export function AddLiquidityDialog({
                         </>
                     )}
 
-                    {/* Initial Price (new pool only) - auto-derived from amounts */}
                     {token0 && token1 && !pool && !isLoadingPool && (
                         <div className="rounded-xl bg-primary/5 border border-primary/10 p-3 space-y-2">
                             <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Address } from 'viem'
-import { ProtocolType } from '@/lib/dex-config'
+import { ProtocolType } from '@coshi190/junoswap-sdk'
 import type { RouteQuote } from '@/types/routing'
 import {
     selectSplitCandidates,

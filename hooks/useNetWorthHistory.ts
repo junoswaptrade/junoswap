@@ -3,59 +3,28 @@
 import { useMemo, useRef } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { fetchBondingCurvePricesSince, fetchV3PricesSince } from '@coshi190/junoswap-sdk'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
 import { isNativeToken } from '@/lib/wagmi'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { isStablecoin } from '@/hooks/useTokenPrices'
-import { calculatePrice, calculatePriceFromSqrtPrice } from '@/services/chart'
+import { calculatePrice, calculatePriceFromSqrtPrice } from '@/services/launchpad/chart'
 import {
     buildLedgerNetWorthSeries,
     type BalanceDelta,
     type LedgerToken,
     type PriceKind,
-} from '@/services/net-worth-ledger'
-import { DAY_SECONDS, type NetWorthPoint, type PricePoint } from '@/services/net-worth-history'
+} from '@/services/portfolio/net-worth-ledger'
+import {
+    DAY_SECONDS,
+    type NetWorthPoint,
+    type PricePoint,
+} from '@/services/portfolio/net-worth-history'
 import type { UserSwapEvent } from '@/hooks/useUserSwapEvents'
 import type { PortfolioToken, TokenType } from '@/types/portfolio'
 
-const PAGE_LIMIT = 1000
-
 const EMPTY_HISTORY: NetWorthPoint[] = []
-
-const BONDING_PRICE_QUERY = `
-  query LedgerBondingPrices($tokenAddr: String!, $since: Int!) {
-    swapEvents(
-      where: { tokenAddr: $tokenAddr, timestamp_gte: $since },
-      orderBy: "timestamp", orderDirection: "asc", limit: ${PAGE_LIMIT}
-    ) {
-      items { timestamp isBuy reserveIn reserveOut }
-    }
-  }
-`
-
-const V3_PRICE_QUERY = `
-  query LedgerV3Prices($tokenAddr: String!, $chainId: Int!, $since: Int!) {
-    v3SwapEvents(
-      where: { tokenAddr: $tokenAddr, chainId: $chainId, timestamp_gte: $since },
-      orderBy: "timestamp", orderDirection: "asc", limit: ${PAGE_LIMIT}
-    ) {
-      items { timestamp sqrtPriceX96 tokenIsToken0 }
-    }
-  }
-`
-
-interface BondingPriceResponse {
-    swapEvents: {
-        items: Array<{ timestamp: number; isBuy: number; reserveIn: string; reserveOut: string }>
-    }
-}
-
-interface V3PriceResponse {
-    v3SwapEvents: {
-        items: Array<{ timestamp: number; sqrtPriceX96: string; tokenIsToken0: number }>
-    }
-}
 
 async function fetchNativePricePoints(
     tokenAddr: string,
@@ -65,11 +34,8 @@ async function fetchNativePricePoints(
 ): Promise<PricePoint[]> {
     try {
         if (tokenType === 'bonding_curve') {
-            const data = await ponderRequest<BondingPriceResponse>(BONDING_PRICE_QUERY, {
-                tokenAddr,
-                since,
-            })
-            return data.swapEvents.items.map((e) => ({
+            const rows = await fetchBondingCurvePricesSince(ponderClient, { tokenAddr, since })
+            return rows.map((e) => ({
                 timestamp: e.timestamp,
                 price: calculatePrice({
                     timestamp: e.timestamp,
@@ -82,12 +48,8 @@ async function fetchNativePricePoints(
             }))
         }
 
-        const data = await ponderRequest<V3PriceResponse>(V3_PRICE_QUERY, {
-            tokenAddr,
-            chainId,
-            since,
-        })
-        return data.v3SwapEvents.items.map((e) => ({
+        const rows = await fetchV3PricesSince(ponderClient, { tokenAddr, chainId, since })
+        return rows.map((e) => ({
             timestamp: e.timestamp,
             price: calculatePriceFromSqrtPrice(BigInt(e.sqrtPriceX96), e.tokenIsToken0 === 1),
         }))
@@ -113,7 +75,6 @@ interface UseNetWorthHistoryParams {
     nativeUsdPoints: PricePoint[]
     nativeUsdPrice: number | null
     netWorthNow: number
-    /** Balances, spot prices, swap history and native-USD points still resolving. */
     isInputLoading: boolean
 }
 

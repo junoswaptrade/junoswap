@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { formatEther } from 'viem'
 
 import { useAllSwapEvents } from '@/hooks/useAllSwapEvents'
-import { formatTokenAmount, formatCompact } from '@/services/launchpad'
+import { formatTokenAmount, formatCompact } from '@/services/launchpad/launchpad'
 import { formatAddress, cn, formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'

@@ -3,14 +3,15 @@
 import { useMemo } from 'react'
 import { useReadContract, useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import {
+    ProtocolType,
+    buildQuoteCall,
+    AGG_ROUTER_JUNOSWAP_ABI,
+    getAggRouterAddress,
+    type ContractCall,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import type { RouteQuote } from '@/types/routing'
-import { ProtocolType, getV2Config, getV3Config } from '@/lib/dex-config'
-import { UNISWAP_V2_ROUTER_ABI } from '@/lib/abis/uniswap-v2-router'
-import { UNISWAP_V3_QUOTER_V2_ABI } from '@/lib/abis/uniswap-v3-quoter'
-import { AGG_ROUTER_JUNOSWAP_ABI, getAggRouterAddress } from '@/lib/abis/agg-router-junoswap'
-import { buildV2QuoteParams } from '@/services/dex/uniswap-v2'
-import { getSwapAddress } from '@/services/tokens'
 import {
     selectSplitCandidates,
     computeGridAmounts,
@@ -18,7 +19,6 @@ import {
     type SplitAllocation,
 } from '@/services/dex/split-routing'
 
-/** routeA's share of amountIn, grid-searched. Endpoints (0/1) are the single-route cases. */
 const SPLIT_FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 interface UseSplitRouteParams {
@@ -33,20 +33,12 @@ interface UseSplitRouteResult {
     allocation: SplitAllocation | null
     predictedNetOut: bigint | null
     bestSingleOut: bigint | null
-    /** The aggregator's protocol fee (bps), read once; cross-DEX plans reuse it. */
     aggFeeBps: number
     isLoading: boolean
 }
 
-type QuoteContract = {
-    address: Address
-    abi: typeof UNISWAP_V2_ROUTER_ABI | typeof UNISWAP_V3_QUOTER_V2_ABI
-    functionName: 'getAmountsOut' | 'quoteExactInputSingle'
-    args: readonly unknown[]
-    chainId: number
-}
+type QuoteContract = ContractCall & { chainId: number }
 
-/** One on-chain quote of `route` at `amount`, or null if the route's config is missing. */
 function buildQuoteContract(
     route: RouteQuote,
     amount: bigint,
@@ -54,42 +46,19 @@ function buildQuoteContract(
     tokenOut: Token,
     chainId: number
 ): QuoteContract | null {
-    if (route.protocolType === ProtocolType.V3) {
-        const cfg = getV3Config(chainId, route.dexId)
-        const fee = route.route.fees?.[0]
-        if (!cfg?.quoter || fee == null) return null
-        return {
-            address: cfg.quoter,
-            abi: UNISWAP_V3_QUOTER_V2_ABI,
-            functionName: 'quoteExactInputSingle',
-            args: [
-                {
-                    tokenIn: getSwapAddress(tokenIn.address as Address, chainId),
-                    tokenOut: getSwapAddress(tokenOut.address as Address, chainId),
-                    amountIn: amount,
-                    fee,
-                    sqrtPriceLimitX96: 0n,
-                },
-            ],
-            chainId,
-        }
-    }
-    const cfg = getV2Config(chainId, route.dexId)
-    if (!cfg?.router) return null
-    const { path } = buildV2QuoteParams(
-        tokenIn.address as Address,
-        tokenOut.address as Address,
-        amount,
+    const fee = route.route.fees?.[0]
+    if (route.protocolType === ProtocolType.V3 && fee == null) return null
+
+    const call = buildQuoteCall({
+        protocol: route.protocolType,
         chainId,
-        cfg.wnative
-    )
-    return {
-        address: cfg.router,
-        abi: UNISWAP_V2_ROUTER_ABI,
-        functionName: 'getAmountsOut',
-        args: [amount, path],
-        chainId,
-    }
+        dexId: route.dexId,
+        tokenIn: tokenIn.address as Address,
+        tokenOut: tokenOut.address as Address,
+        amountIn: amount,
+        fee,
+    })
+    return call ? { ...call, chainId } : null
 }
 
 function parseOut(
@@ -106,12 +75,6 @@ function parseOut(
     return out != null && out > 0n ? out : null
 }
 
-/**
- * Predicts the best 2-way split of `amountIn` across two distinct DEXes by quoting a grid of
- * allocations on-chain. Returns the winning allocation (net of the aggregator fee) or null when
- * no split beats routing everything through the single best DEX. The caller applies the
- * MIN_AGG_IMPROVEMENT_BPS margin before actually routing through the aggregator.
- */
 export function useSplitRoute({
     tokenIn,
     tokenOut,
@@ -128,7 +91,6 @@ export function useSplitRoute({
 
     const isReady = enabled && !!tokenIn && !!tokenOut && !!router && !!candidates && amountIn > 0n
 
-    // Grid quotes for A at its shares, then B at its shares — results split at the midpoint.
     const contracts = useMemo(() => {
         if (!isReady || !candidates || !tokenIn || !tokenOut) return []
         const [a, b] = candidates

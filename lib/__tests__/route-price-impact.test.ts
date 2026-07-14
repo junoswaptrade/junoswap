@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Address } from 'viem'
 import { computePriceImpactPercent } from '@/hooks/useRoutePriceImpact'
-import { poolKey } from '@/hooks/useV3PoolDiscovery'
 
 describe('computePriceImpactPercent', () => {
     it('is ~0 when the full-trade rate matches the reference rate', () => {
@@ -26,25 +24,5 @@ describe('computePriceImpactPercent', () => {
 
     it('returns undefined when amountIn is zero', () => {
         expect(computePriceImpactPercent(2000n, 0n, 2n, 1n)).toBeUndefined()
-    })
-})
-
-describe('poolKey', () => {
-    const F = '0xffff000000000000000000000000000000000000' as Address
-    const A = '0xaaaa000000000000000000000000000000000000' as Address
-    const B = '0xbbbb000000000000000000000000000000000000' as Address
-
-    it('is order-independent for the token pair', () => {
-        expect(poolKey(F, A, B, 3000)).toBe(poolKey(F, B, A, 3000))
-    })
-
-    it('distinguishes fee tiers and factories', () => {
-        expect(poolKey(F, A, B, 3000)).not.toBe(poolKey(F, A, B, 500))
-        const F2 = '0xeeee000000000000000000000000000000000000' as Address
-        expect(poolKey(F, A, B, 3000)).not.toBe(poolKey(F2, A, B, 3000))
-    })
-
-    it('normalizes address casing', () => {
-        expect(poolKey(F, A.toUpperCase() as Address, B, 3000)).toBe(poolKey(F, A, B, 3000))
     })
 })

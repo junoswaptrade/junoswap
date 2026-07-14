@@ -2,26 +2,10 @@
 
 import { useChainId } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
+import { fetchNativeUsdPrice } from '@coshi190/junoswap-sdk'
 import { NATIVE_USD_STABLE } from '@/lib/routing-config'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
-
-interface NativeUsdPriceResponse {
-    nativeUsdPrices: {
-        items: Array<{ chainId: number; price: string }>
-    }
-}
-
-const NATIVE_USD_PRICE_QUERY = `
-  query NativeUsdPrice($chainId: Int!) {
-    nativeUsdPrices(where: { chainId: $chainId }, limit: 1) {
-      items {
-        chainId
-        price
-      }
-    }
-  }
-`
 
 export function useNativeUsdPrice(chainId?: number) {
     const currentChainId = useChainId()
@@ -35,11 +19,7 @@ export function useNativeUsdPrice(chainId?: number) {
         queryKey: ['native-usd-price', targetChainId],
         queryFn: async () => {
             try {
-                const result = await ponderRequest<NativeUsdPriceResponse>(NATIVE_USD_PRICE_QUERY, {
-                    chainId: targetChainId,
-                })
-                const item = result.nativeUsdPrices.items[0]
-                return item ? parseFloat(item.price) : null
+                return await fetchNativeUsdPrice(ponderClient, { chainId: targetChainId })
             } catch (e) {
                 if (isPonderError(e)) return null
                 throw e

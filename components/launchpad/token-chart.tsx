@@ -34,13 +34,13 @@ import {
     buildCreatorMarkers,
     calculatePriceFromSqrtPrice,
     computeDailyMetrics,
-} from '@/services/chart'
-import type { DailyMetrics } from '@/services/chart'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
+} from '@/services/launchpad/chart'
+import type { DailyMetrics } from '@/services/launchpad/chart'
+import { UNISWAP_V3_POOL_ABI } from '@coshi190/junoswap-sdk'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
-import { formatCompact } from '@/services/launchpad'
+import { formatCompact } from '@/services/launchpad/launchpad'
 
 interface TokenChartProps {
     tokenAddr: Address

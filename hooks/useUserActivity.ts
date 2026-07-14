@@ -2,121 +2,27 @@
 
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
-import { ponderRequest, isPonderError } from '@/lib/ponder-client'
+import {
+    fetchUserBondingCurveSwaps,
+    fetchUserV3Swaps,
+    fetchUserV2Swaps,
+    fetchUserTransfers,
+    fetchUserAggSwaps,
+    fetchLaunchTokenMeta,
+    fetchV3Tokens,
+    isLaunchpadChain,
+    isAggRouterChain,
+    NATIVE_TOKEN_ADDRESS,
+} from '@coshi190/junoswap-sdk'
+import { ponderClient, isPonderError } from '@/lib/ponder-client'
 import { isLeaderboardSupportedChain } from '@/lib/leaderboard-utils'
-import { isLaunchpadChain } from '@/lib/abis/bonding-curve-junoswap'
-import { isAggRouterChain } from '@/lib/abis/agg-router-junoswap'
-import { findTokenByAddress, getTokensForChain } from '@/lib/tokens'
-import { findWrappedNativeAddress } from '@/services/tokens'
+import { findTokenByAddress, getTokensForChain, findWrappedNativeAddress } from '@/lib/tokens'
 import { resolveLaunchpadLogo } from '@/lib/logo'
 import { applyLaunchpadTokenOverride } from '@/lib/launchpad-token-config'
 import type { ActivityEvent, ActivityLeg } from '@/types/portfolio'
 
 const PAGE_SIZE = 20
-const NATIVE_ADDRESS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
-
-interface BondingCurvePage {
-    swapEvents: {
-        items: Array<{
-            id: string
-            tokenAddr: string
-            sender: string
-            isBuy: number
-            amountIn: string
-            amountOut: string
-            timestamp: number
-            transactionHash: string
-        }>
-    }
-}
-
-interface V3SwapPage {
-    v3SwapEvents: {
-        items: Array<{
-            id: string
-            tokenAddr: string
-            sender: string
-            txFrom: string
-            tokenIsToken0: number
-            amount0: string
-            amount1: string
-            timestamp: number
-            transactionHash: string
-            protocol: string
-        }>
-    }
-}
-
-interface V2SwapPage {
-    v2SwapEvents: {
-        items: Array<{
-            id: string
-            txFrom: string
-            token0Addr: string
-            token1Addr: string
-            amount0In: string
-            amount1In: string
-            amount0Out: string
-            amount1Out: string
-            timestamp: number
-            transactionHash: string
-            protocol: string
-        }>
-    }
-}
-
-interface TransferPage {
-    transferEvents: {
-        items: Array<{
-            id: string
-            tokenAddr: string
-            from: string
-            to: string
-            amount: string
-            timestamp: number
-            transactionHash: string
-        }>
-    }
-}
-
-interface AggSwapPage {
-    aggSwapEvents: {
-        items: Array<{
-            id: string
-            sender: string
-            tokenIn: string
-            tokenOut: string
-            amountIn: string
-            amountOut: string
-            fee: string
-            legs: number
-            timestamp: number
-            transactionHash: string
-        }>
-    }
-}
-
-interface TokenMetaPage {
-    launchTokens: {
-        items: Array<{
-            tokenAddr: string
-            logo: string
-            name: string
-            symbol: string
-        }>
-    }
-}
-
-interface V3TokenMetaPage {
-    v3Tokens: {
-        items: Array<{
-            address: string
-            symbol: string
-            name: string
-            decimals: number
-        }>
-    }
-}
+const NATIVE_ADDRESS: string = NATIVE_TOKEN_ADDRESS
 
 interface TokenMeta {
     symbol: string
@@ -125,197 +31,30 @@ interface TokenMeta {
     decimals: number
 }
 
-async function fetchBondingCurveEvents(
-    sender: string,
-    chainId: number,
-    limit: number,
-    after?: string
-): Promise<{ items: BondingCurvePage['swapEvents']['items']; totalCount: number }> {
-    const query = `
-        query UserBcActivity($sender: String!, $chainId: Int!, $limit: Int!, $after: String) {
-            swapEvents(
-                where: { sender: $sender, chainId: $chainId },
-                orderBy: "timestamp",
-                orderDirection: "desc",
-                limit: $limit,
-                after: $after
-            ) {
-                items {
-                    id tokenAddr sender isBuy amountIn amountOut timestamp transactionHash
-                }
-            }
-        }
-    `
-    const data = await ponderRequest<BondingCurvePage>(query, { sender, chainId, limit, after })
-    const countQuery = `
-        query UserBcCount($sender: String!, $chainId: Int!) {
-            swapEvents(where: { sender: $sender, chainId: $chainId }, limit: 0) { items { id } }
-        }
-    `
-    const countData = await ponderRequest<BondingCurvePage>(countQuery, {
-        sender,
-        chainId,
-        limit: 0,
-    })
-    return {
-        items: data.swapEvents.items,
-        totalCount: countData.swapEvents.items.length,
-    }
+function fetchBondingCurveEvents(sender: string, chainId: number, limit: number) {
+    return fetchUserBondingCurveSwaps(ponderClient, { sender, chainId, limit })
 }
 
-async function fetchV3Events(
-    sender: string,
-    chainId: number,
-    limit: number,
-    after?: string
-): Promise<{ items: V3SwapPage['v3SwapEvents']['items']; totalCount: number }> {
-    const query = `
-        query UserV3Activity($sender: String!, $chainId: Int!, $limit: Int!, $after: String) {
-            v3SwapEvents(
-                where: { txFrom: $sender, chainId: $chainId },
-                orderBy: "timestamp",
-                orderDirection: "desc",
-                limit: $limit,
-                after: $after
-            ) {
-                items {
-                    id tokenAddr sender txFrom tokenIsToken0 amount0 amount1 timestamp transactionHash protocol
-                }
-            }
-        }
-    `
-    const data = await ponderRequest<V3SwapPage>(query, { sender, chainId, limit, after })
-    const countQuery = `
-        query UserV3Count($sender: String!, $chainId: Int!) {
-            v3SwapEvents(where: { txFrom: $sender, chainId: $chainId }, limit: 0) { items { id } }
-        }
-    `
-    const countData = await ponderRequest<V3SwapPage>(countQuery, {
-        sender,
-        chainId,
-        limit: 0,
-    })
-    return {
-        items: data.v3SwapEvents.items,
-        totalCount: countData.v3SwapEvents.items.length,
-    }
+function fetchV3Events(sender: string, chainId: number, limit: number) {
+    return fetchUserV3Swaps(ponderClient, { sender, chainId, limit })
 }
 
-async function fetchV2Events(
-    sender: string,
-    chainId: number,
-    limit: number,
-    after?: string
-): Promise<{ items: V2SwapPage['v2SwapEvents']['items']; totalCount: number }> {
-    const query = `
-        query UserV2Activity($sender: String!, $chainId: Int!, $limit: Int!, $after: String) {
-            v2SwapEvents(
-                where: { txFrom: $sender, chainId: $chainId },
-                orderBy: "timestamp",
-                orderDirection: "desc",
-                limit: $limit,
-                after: $after
-            ) {
-                items {
-                    id txFrom token0Addr token1Addr amount0In amount1In amount0Out amount1Out timestamp transactionHash protocol
-                }
-            }
-        }
-    `
-    const data = await ponderRequest<V2SwapPage>(query, { sender, chainId, limit, after })
-    const countQuery = `
-        query UserV2Count($sender: String!, $chainId: Int!) {
-            v2SwapEvents(where: { txFrom: $sender, chainId: $chainId }, limit: 0) { items { id } }
-        }
-    `
-    const countData = await ponderRequest<V2SwapPage>(countQuery, {
-        sender,
-        chainId,
-        limit: 0,
-    })
-    return {
-        items: data.v2SwapEvents.items,
-        totalCount: countData.v2SwapEvents.items.length,
-    }
+function fetchV2Events(sender: string, chainId: number, limit: number) {
+    return fetchUserV2Swaps(ponderClient, { sender, chainId, limit })
 }
 
-async function fetchTransferEvents(
-    sender: string,
-    chainId: number,
-    limit: number
-): Promise<{ items: TransferPage['transferEvents']['items']; totalCount: number }> {
-    const query = `
-        query UserTransfers($sender: String!, $chainId: Int!, $limit: Int!) {
-            transferEvents(
-                where: { AND: [{ OR: [{ from: $sender }, { to: $sender }] }, { chainId: $chainId }] },
-                orderBy: "timestamp",
-                orderDirection: "desc",
-                limit: $limit
-            ) {
-                items {
-                    id tokenAddr from to amount timestamp transactionHash
-                }
-            }
-        }
-    `
-    const data = await ponderRequest<TransferPage>(query, { sender, chainId, limit })
-    const countQuery = `
-        query UserTransferCount($sender: String!, $chainId: Int!) {
-            transferEvents(where: { AND: [{ OR: [{ from: $sender }, { to: $sender }] }, { chainId: $chainId }] }, limit: 0) { items { id } }
-        }
-    `
-    const countData = await ponderRequest<TransferPage>(countQuery, { sender, chainId })
-    return {
-        items: data.transferEvents.items,
-        totalCount: countData.transferEvents.items.length,
-    }
+function fetchTransferEvents(sender: string, chainId: number, limit: number) {
+    return fetchUserTransfers(ponderClient, { sender, chainId, limit })
 }
 
-async function fetchAggEvents(
-    sender: string,
-    chainId: number,
-    limit: number,
-    after?: string
-): Promise<{ items: AggSwapPage['aggSwapEvents']['items']; totalCount: number }> {
-    const query = `
-        query UserAggActivity($sender: String!, $chainId: Int!, $limit: Int!, $after: String) {
-            aggSwapEvents(
-                where: { sender: $sender, chainId: $chainId },
-                orderBy: "timestamp",
-                orderDirection: "desc",
-                limit: $limit,
-                after: $after
-            ) {
-                items {
-                    id sender tokenIn tokenOut amountIn amountOut fee legs timestamp transactionHash
-                }
-            }
-        }
-    `
-    const data = await ponderRequest<AggSwapPage>(query, { sender, chainId, limit, after })
-    const countQuery = `
-        query UserAggCount($sender: String!, $chainId: Int!) {
-            aggSwapEvents(where: { sender: $sender, chainId: $chainId }, limit: 0) { items { id } }
-        }
-    `
-    const countData = await ponderRequest<AggSwapPage>(countQuery, { sender, chainId, limit: 0 })
-    return {
-        items: data.aggSwapEvents.items,
-        totalCount: countData.aggSwapEvents.items.length,
-    }
+function fetchAggEvents(sender: string, chainId: number, limit: number) {
+    return fetchUserAggSwaps(ponderClient, { sender, chainId, limit })
 }
 
 async function fetchTokenMeta(chainId: number): Promise<Map<string, TokenMeta>> {
-    const query = `
-        query TokenMeta {
-            launchTokens(limit: 1000) {
-                items { tokenAddr logo name symbol }
-            }
-        }
-    `
-    const data = await ponderRequest<TokenMetaPage>(query, {})
+    const rows = await fetchLaunchTokenMeta(ponderClient, { chainId })
     const map = new Map<string, TokenMeta>()
-    for (const raw of data.launchTokens.items) {
+    for (const raw of rows) {
         const t = applyLaunchpadTokenOverride(raw, chainId)
         map.set(t.tokenAddr.toLowerCase(), {
             symbol: t.symbol || '',
@@ -328,16 +67,9 @@ async function fetchTokenMeta(chainId: number): Promise<Map<string, TokenMeta>> 
 }
 
 async function fetchV3TokenMeta(chainId: number): Promise<Map<string, TokenMeta>> {
-    const query = `
-        query V3TokenMeta($chainId: Int!) {
-            v3Tokens(where: { chainId: $chainId }, limit: 500) {
-                items { address symbol name decimals }
-            }
-        }
-    `
-    const data = await ponderRequest<V3TokenMetaPage>(query, { chainId })
+    const rows = await fetchV3Tokens(ponderClient, { chainId })
     const map = new Map<string, TokenMeta>()
-    for (const t of data.v3Tokens.items) {
+    for (const t of rows) {
         map.set(t.address.toLowerCase(), {
             symbol: t.symbol || '',
             name: t.name || '',
@@ -380,15 +112,15 @@ export function useUserActivity(
                     fetchV3TokenMeta(chainId),
                     hasLaunchpad
                         ? fetchBondingCurveEvents(sender, chainId, PAGE_SIZE + 50)
-                        : Promise.resolve({ items: [], totalCount: 0 }),
+                        : Promise.resolve([]),
                     fetchV3Events(sender, chainId, PAGE_SIZE + 50),
                     fetchV2Events(sender, chainId, PAGE_SIZE + 50),
                     hasLaunchpad
                         ? fetchTransferEvents(sender, chainId, PAGE_SIZE + 50)
-                        : Promise.resolve({ items: [], totalCount: 0 }),
+                        : Promise.resolve([]),
                     isAggRouterChain(chainId)
                         ? fetchAggEvents(sender, chainId, PAGE_SIZE + 50)
-                        : Promise.resolve({ items: [], totalCount: 0 }),
+                        : Promise.resolve([]),
                 ])
 
                 const tokenMeta = new Map(launchMeta)
@@ -407,10 +139,10 @@ export function useUserActivity(
                     if (!tokenMeta.has(addr)) tokenMeta.set(addr, meta)
                 }
 
-                const aggTxHashes = new Set(aggResult.items.map((e) => e.transactionHash))
-                const bcItems = bcResult.items.filter((e) => !aggTxHashes.has(e.transactionHash))
-                const v3Items = v3Result.items.filter((e) => !aggTxHashes.has(e.transactionHash))
-                const v2Items = v2Result.items.filter((e) => !aggTxHashes.has(e.transactionHash))
+                const aggTxHashes = new Set(aggResult.map((e) => e.transactionHash))
+                const bcItems = bcResult.filter((e) => !aggTxHashes.has(e.transactionHash))
+                const v3Items = v3Result.filter((e) => !aggTxHashes.has(e.transactionHash))
+                const v2Items = v2Result.filter((e) => !aggTxHashes.has(e.transactionHash))
 
                 const wrappedNative = findWrappedNativeAddress(chainId)?.toLowerCase()
                 const nativeToken = findTokenByAddress(chainId, NATIVE_ADDRESS)
@@ -524,7 +256,7 @@ export function useUserActivity(
                     }
                 })
 
-                const aggEvents: ActivityEvent[] = aggResult.items.map((e) => {
+                const aggEvents: ActivityEvent[] = aggResult.map((e) => {
                     const sell = resolveAggLeg(e.tokenIn, e.amountIn)
                     const buy = resolveAggLeg(e.tokenOut, e.amountOut)
                     return {
@@ -553,7 +285,7 @@ export function useUserActivity(
                     ...aggTxHashes,
                 ])
 
-                const transferEvents: ActivityEvent[] = transferResult.items
+                const transferEvents: ActivityEvent[] = transferResult
                     .filter((e) => !swapTxHashes.has(e.transactionHash))
                     .map((e) => {
                         const isReceived = e.to.toLowerCase() === sender

@@ -1,12 +1,6 @@
-/**
- * localStorage utilities for tracking staked position tokenIds
- * This provides fast loading on page refresh while being validated against on-chain state
- */
-
 const STORAGE_KEY = 'junoswap-staked-positions'
 
 interface StakedPositionsData {
-    // chainId -> address -> tokenIds (as strings for JSON serialization)
     [chainId: string]: {
         [address: string]: string[]
     }
@@ -81,7 +75,6 @@ export function removeStakedTokenId(chainId: number, address: string, tokenId: b
     setStorageData(data)
 }
 
-/** Overwrites the stored set; used after the on-chain event-query fallback. */
 export function setStakedTokenIds(chainId: number, address: string, tokenIds: bigint[]): void {
     const data = getStorageData()
     const chainKey = chainId.toString()

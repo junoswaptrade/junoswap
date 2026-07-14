@@ -9,9 +9,7 @@ const nextConfig = {
             { protocol: 'https', hostname: 'raw.githubusercontent.com' },
             { protocol: 'https', hostname: 'dd.dexscreener.com' },
         ],
-        // logos are immutable per CID — cache aggressively
         minimumCacheTTL: 2592000,
-        // uploaded logos may be SVG (see ALLOWED_MIME_TYPES in upload-to-pinata.ts)
         dangerouslyAllowSVG: true,
         contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     },

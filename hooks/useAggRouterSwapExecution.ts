@@ -3,14 +3,14 @@
 import { useMemo } from 'react'
 import { useWaitForTransactionReceipt, useSimulateContract, useSendTransaction } from 'wagmi'
 import { encodeFunctionData, type Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import { AGG_ROUTER_JUNOSWAP_ABI, getAggRouterAddress } from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import type { SwapResult } from '@/types/swap'
-import { AGG_ROUTER_JUNOSWAP_ABI, getAggRouterAddress } from '@/lib/abis/agg-router-junoswap'
 import { buildAggregateParams, buildLegs, type Leg } from '@/services/dex/agg-router'
 import { isNativeToken } from '@/lib/wagmi'
 import { toastError } from '@/lib/toast'
 import { useReferrer } from '@/hooks/useReferrer'
-import { appendTrackingTag } from '@/lib/swap-tracking'
+import { appendTrackingTag } from '@coshi190/junoswap-sdk'
 
 interface UseAggRouterSwapExecutionParams {
     tokenIn: Token
@@ -19,7 +19,6 @@ interface UseAggRouterSwapExecutionParams {
     amountOutMinimum: bigint
     recipient: Address
     deadlineMinutes: number
-    /** Legs of the winning aggregator plan (split or cross-DEX); null when not routing via the router. */
     legs: Leg[] | null
     skipSimulation?: boolean
 }
@@ -106,8 +105,6 @@ export function useAggRouterSwapExecution({
         query: { enabled: amountIn > 0n && !!router && !!call && !skipSimulation },
     })
 
-    // Fall back to raw sends so the referral tracking tag survives the encoded calldata,
-    // exactly as the per-DEX execution hooks do.
     const {
         data: sendHash,
         sendTransaction,

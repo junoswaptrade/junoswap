@@ -4,11 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import type { Address } from 'viem'
 import { maxUint256, zeroAddress } from 'viem'
-import { ERC20_ABI } from '@/lib/abis/erc20'
-import { getWrappedNativeAddress } from '@/services/tokens'
+import { ERC20_ABI } from '@coshi190/junoswap-sdk'
+import { getWrappedNativeAddress } from '@/lib/tokens'
 import { shouldSkipUnwrap } from '@/lib/wagmi'
 
-/** KYC-gated KKUB unwrapper contract on KUB chain */
 const KKUB_UNWRAPPER_ADDRESS = '0xff76DD8086428EBC4Ed1b14B0e56E95eDc46a315' as const
 
 const KKUB_UNWRAPPER_ABI = [
@@ -70,7 +69,6 @@ export function useKkubUnwrap({
     const processedHashRef = useRef('')
     const triggeredRef = useRef(false)
 
-    // When tx confirms, advance to next phase
     useEffect(() => {
         if (!isTxDone || !hash) return
         if (processedHashRef.current === hash) return
@@ -94,7 +92,6 @@ export function useKkubUnwrap({
         triggeredRef.current = true
 
         if (allowance >= amount) {
-            // Already approved, go straight to withdraw
             setPhase('withdrawing')
             writeContract({
                 address: KKUB_UNWRAPPER_ADDRESS,
@@ -103,7 +100,6 @@ export function useKkubUnwrap({
                 args: [amount],
             })
         } else {
-            // Approve first, then withdraw
             setPhase('approving')
             writeContract({
                 address: kkubAddress,
@@ -120,7 +116,6 @@ export function useKkubUnwrap({
         processedHashRef.current = ''
     }, [])
 
-    // Reset when amount changes (new swap)
     useEffect(() => {
         triggeredRef.current = false
         setPhase('idle')

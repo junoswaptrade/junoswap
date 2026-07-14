@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { cn, formatAddress } from '@/lib/utils'
-import { formatCompact } from '@/services/launchpad'
+import { formatCompact } from '@/services/launchpad/launchpad'
 import {
     Table,
     TableBody,

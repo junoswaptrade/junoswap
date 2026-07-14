@@ -2,25 +2,14 @@
 
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
-import type { Address } from 'viem'
-import { UNISWAP_V3_FACTORY_ABI } from '@/lib/abis/uniswap-v3-factory'
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+import { zeroAddress, type Address } from 'viem'
+import { UNISWAP_V3_FACTORY_ABI, poolKey } from '@coshi190/junoswap-sdk'
 
 export interface PoolQuery {
     factory: Address
     tokenA: Address
     tokenB: Address
     fee: number
-}
-
-/** Order-independent key for a (factory, unordered pair, fee) pool. */
-export function poolKey(factory: Address, a: Address, b: Address, fee: number): string {
-    const [x, y] =
-        a.toLowerCase() < b.toLowerCase()
-            ? [a.toLowerCase(), b.toLowerCase()]
-            : [b.toLowerCase(), a.toLowerCase()]
-    return `${factory.toLowerCase()}:${x}:${y}:${fee}`
 }
 
 interface UseV3PoolDiscoveryParams {
@@ -30,20 +19,12 @@ interface UseV3PoolDiscoveryParams {
 }
 
 interface UseV3PoolDiscoveryResult {
-    /** True once discovery has resolved and the pool for these tokens/fee exists. */
     hasPool: (factory: Address, a: Address, b: Address, fee: number) => boolean
     existingPools: Set<string>
     isLoading: boolean
     isError: boolean
 }
 
-/**
- * Batches `factory.getPool` across many (factory, pair, fee) combinations in a single
- * multicall so multi-hop routing can prune fee-tier candidates to pools that actually
- * exist before spending expensive `quoteExactInput` calls on them. Results are keyed
- * order-independently and deduped, and cached long (`staleTime`) since pool existence
- * changes rarely. Callers must memoize `queries` — its reference identity gates the batch.
- */
 export function useV3PoolDiscovery({
     queries,
     chainId,
@@ -77,7 +58,7 @@ export function useV3PoolDiscovery({
         data.forEach((res, i) => {
             if (res.status === 'success') {
                 const addr = res.result as Address | undefined
-                if (addr && addr.toLowerCase() !== ZERO_ADDRESS) {
+                if (addr && addr.toLowerCase() !== zeroAddress) {
                     set.add(uniqueQueries[i]![0])
                 }
             }

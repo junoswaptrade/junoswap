@@ -18,7 +18,6 @@ interface ReferredTrader {
 }
 
 export interface ReferralRewards {
-    /** 10% of the summed points of every wallet bound to the connected user. */
     referralPoints: number
     refereeCount: number
     referees: ReferredTrader[]
@@ -28,11 +27,6 @@ export interface ReferralRewards {
 
 const EMPTY = { referees: [] as string[], rows: [] }
 
-/**
- * Referral earnings for the connected wallet under the sticky first-touch model: every
- * wallet bound to it (indexer `referralBinding`) contributes 10% of its all-time points.
- * Independent of the points page's time filter — referral rewards are cumulative.
- */
 export function useReferralRewards(nativeUsdPrice: number | null): ReferralRewards {
     const { address } = useAccount()
     const chainId = useChainId()

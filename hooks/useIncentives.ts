@@ -4,12 +4,14 @@ import { useMemo } from 'react'
 import { useReadContracts, useChainId } from 'wagmi'
 import type { Address } from 'viem'
 import type { Incentive, IncentiveKey } from '@/types/earn'
-import type { Token } from '@/types/tokens'
-import { getV3StakerAddress } from '@/lib/dex-config'
+import {
+    getV3StakerAddress,
+    UNISWAP_V3_STAKER_ABI,
+    UNISWAP_V3_POOL_ABI,
+    ERC20_ABI,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { findTokenByAddress } from '@/lib/tokens'
-import { UNISWAP_V3_STAKER_ABI } from '@/lib/abis/uniswap-v3-staker'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
-import { ERC20_ABI } from '@/lib/abis/erc20'
 import { computeIncentiveId } from '@/services/mining/staking'
 import { isIncentiveActive, isIncentiveEnded } from '@/services/mining/incentives'
 

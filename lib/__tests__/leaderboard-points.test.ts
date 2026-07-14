@@ -1,8 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Stubs the client the SDK fetchers are handed. fetchAllPages applies the same `select` the real
+// one does, so the fixtures below stay in raw GraphQL-response shape (one page, no cursor).
 const ponderRequest = vi.fn()
 vi.mock('@/lib/ponder-client', () => ({
-    ponderRequest: (q: string) => ponderRequest(q),
+    ponderClient: {
+        request: (q: string) => ponderRequest(q),
+        fetchAllPages: async <TResponse>(
+            query: string,
+            _variables: Record<string, unknown>,
+            select: (r: TResponse) => { items: unknown[] }
+        ) => select((await ponderRequest(query)) as TResponse).items,
+    },
     isPonderError: () => false,
 }))
 
@@ -13,7 +22,7 @@ import {
     fetchV2SwapEvents,
     type SwapEventRow,
 } from '@/lib/leaderboard-utils'
-import { resolveBinding } from '@/indexer/src/tracking'
+import { resolveBinding } from '@coshi190/junoswap-sdk'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { bitkub } from '@/lib/wagmi'
 

@@ -23,11 +23,6 @@ export function formatFullDate(timestampSeconds: number): string {
     return new Date(timestampSeconds * 1000).toLocaleString()
 }
 
-/**
- * Validates numeric input for token amounts
- * Allows: digits, one decimal point, leading/trailing decimal
- * Blocks: multiple decimals, leading zeros (05), scientific notation (e5)
- */
 export function isValidNumberInput(value: string): boolean {
     if (value === '') return true
     if (!/^\d*\.?\d*$/.test(value)) return false

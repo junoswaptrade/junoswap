@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import type { Token } from '@/types/token'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useChainId, useSwitchChain } from 'wagmi'
 import { useDebounce } from './useDebounce'
@@ -13,11 +14,8 @@ import {
 } from '@/lib/swap-params'
 import { toast } from 'sonner'
 import { getChainMetadata } from '@/lib/wagmi'
-import type { Token } from '@/types/tokens'
-
 const URL_UPDATE_DEBOUNCE_MS = 500
 
-/** True when the store token's address matches the URL address (or the URL has no such param). */
 function matchesUrlAddress(token: Token | null, address: string | undefined): boolean {
     if (!address) return true
     return !!token && token.address.toLowerCase() === address.toLowerCase()
@@ -38,9 +36,6 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
         setAmountIn,
         setIsUpdatingFromUrl,
     } = useSwapStore()
-    // Mirror the latest token list in a ref so applyUrlParams can resolve dynamic
-    // (graduated / V3) tokens without forcing the main URL effect to depend on `tokens`
-    // (which would re-run the chain-switch toast logic on every list update).
     const tokensRef = useRef(tokens)
     tokensRef.current = tokens
     const hasInitializedRef = useRef(false)
@@ -138,10 +133,6 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
             }
         }
     }, [chainId, applyUrlParams])
-    // Backfill launchpad / V3 tokens that aren't in the static list and only become
-    // resolvable once the async token list loads. This runs separately from the main
-    // URL→store effect and ONLY fills empty slots — it never overwrites a token the
-    // user picked, so manual token changes are never reverted.
     useEffect(() => {
         if (!hasInitializedRef.current) return
         if (isUpdatingFromUrlRef.current) return
@@ -176,7 +167,6 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
             output: debouncedTokenOut?.address,
             amount: debouncedAmountIn || undefined,
             chain: chainId.toString(),
-            // Re-append the persisted referrer so the ?ref= link survives navigation
             ref: searchParams.get('ref') || storedReferrer || undefined,
         })
         const currentParams = new URLSearchParams(searchParams.toString())
@@ -202,9 +192,6 @@ export function useSwapUrlSync(tokens?: Token[], isTokensLoading = false) {
         storedReferrer,
     ])
 
-    // Whether a URL-provided token is still waiting to be applied to the store.
-    // While true, the swap card must not run its default-token initialization, or it
-    // would clobber the (possibly async-resolving) URL token.
     const rawUrlParams = parseSwapSearchParams(searchParams)
     const hasUrlTokenParam = !!(rawUrlParams.input || rawUrlParams.output)
     const storeMatchesUrl =

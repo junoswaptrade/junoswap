@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useCollectFees } from '@/hooks/useLiquidity'
-import { formatTokenAmount } from '@/services/tokens'
+import { formatTokenAmount } from '@/lib/tokens'
 import { toastSuccess, toastError } from '@/lib/toast'
 import type { PositionWithTokens } from '@/types/earn'
 

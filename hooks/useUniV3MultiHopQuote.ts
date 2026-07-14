@@ -3,15 +3,18 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import {
+    getV3Config,
+    getFeeTiers,
+    getDexsByProtocol,
+    buildQuoteCall,
+    ProtocolType,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import type { DEXType } from '@/lib/dex-meta'
 import type { RouteQuote, SwapRoute } from '@/types/routing'
-import type { DEXType } from '@/types/dex'
-import { getV3Config, FEE_TIERS, getDexsByProtocol, ProtocolType } from '@/lib/dex-config'
 import { getIntermediaryTokens, enumerateHopPaths, MAX_HOPS } from '@/lib/routing-config'
-import { UNISWAP_V3_QUOTER_V2_ABI } from '@/lib/abis/uniswap-v3-quoter'
-import { encodeV3Path } from '@/services/dex/uniswap-v3'
-import { getSwapAddress, getWrapOperation } from '@/services/tokens'
-import { findTokenByAddress } from '@/lib/tokens'
+import { getSwapAddress, getWrapOperation, findTokenByAddress } from '@/lib/tokens'
 import { useV3PoolDiscovery, type PoolQuery } from './useV3PoolDiscovery'
 
 interface UseUniV3MultiHopQuoteParams {
@@ -30,12 +33,8 @@ interface UseUniV3MultiHopQuoteResult {
     error: Error | null
 }
 
-const ALL_FEE_TIERS: number[] = Object.values(FEE_TIERS)
-
-/** Hard cap on batched quote calls per keystroke, guarding against pathological fan-out. */
 const MAX_QUOTE_QUERIES = 80
 
-/** One V3 multi-hop path on a specific DEX (token addresses already native→wrapped normalized). */
 interface Candidate {
     dexId: DEXType
     factory: Address
@@ -45,7 +44,6 @@ interface Candidate {
     intermediaries: Address[] // raw connector addresses, for display/token lookup
 }
 
-/** A single quote call: a candidate crossed with one concrete per-leg fee combination. */
 interface QuoteMeta {
     candidate: Candidate
     fees: number[]
@@ -74,7 +72,6 @@ export function useUniV3MultiHopQuote({
 
     const isReadyForQuote = enabled && !!tokenIn && !!tokenOut && amountIn > 0n && !wrapOperation
 
-    // Enumerate candidate paths across every V3 DEX × connector path (2- and 3-hop).
     const candidates = useMemo((): Candidate[] => {
         if (!isReadyForQuote || !tokenIn || !tokenOut) return []
         const connectors = getIntermediaryTokens(chainId)
@@ -88,10 +85,9 @@ export function useUniV3MultiHopQuote({
         for (const targetDexId of targetDexIds) {
             const cfg = getV3Config(chainId, targetDexId)
             if (!cfg?.factory || !cfg?.quoter) continue
-            const feeTiers = cfg.feeTiers?.length ? cfg.feeTiers : ALL_FEE_TIERS
+            const feeTiers = getFeeTiers(cfg)
             for (const rawPath of rawPaths) {
                 const tokens = rawPath.map((a) => getSwapAddress(a, chainId))
-                // Drop paths that collapse after native→wrapped normalization.
                 const collapsed = tokens.some(
                     (t, i) => i > 0 && t.toLowerCase() === tokens[i - 1]!.toLowerCase()
                 )
@@ -109,7 +105,6 @@ export function useUniV3MultiHopQuote({
         return result
     }, [isReadyForQuote, tokenIn, tokenOut, chainId, targetDexIds])
 
-    // Discover which per-leg pools exist so we only quote realizable fee combinations.
     const poolQueries = useMemo((): PoolQuery[] => {
         const queries: PoolQuery[] = []
         for (const c of candidates) {
@@ -133,8 +128,6 @@ export function useUniV3MultiHopQuote({
         enabled: isReadyForQuote && poolQueries.length > 0,
     })
 
-    // Build the pruned quote set: for each candidate, cross-product the fee tiers whose
-    // pool exists on every leg. Candidates with a dead leg are dropped entirely.
     const quoteMetas = useMemo((): QuoteMeta[] => {
         if (discovery.isLoading) return []
         const metas: QuoteMeta[] = []
@@ -166,13 +159,20 @@ export function useUniV3MultiHopQuote({
         isError,
         error,
     } = useReadContracts({
-        contracts: quoteMetas.map(({ candidate, fees }) => ({
-            address: candidate.quoter,
-            abi: UNISWAP_V3_QUOTER_V2_ABI,
-            functionName: 'quoteExactInput' as const,
-            args: [encodeV3Path(candidate.tokens, fees), amountIn],
-            chainId,
-        })),
+        contracts: quoteMetas.map(({ candidate, fees }) => {
+            const call = buildQuoteCall({
+                protocol: ProtocolType.V3,
+                chainId,
+                dexId: candidate.dexId,
+                tokenIn: candidate.tokens[0]!,
+                tokenOut: candidate.tokens[candidate.tokens.length - 1]!,
+                amountIn,
+                path: candidate.tokens,
+                fees,
+            })
+            if (!call) throw new Error(`No quote call for ${candidate.dexId} on chain ${chainId}`)
+            return { ...call, chainId }
+        }),
         query: {
             enabled: isReadyForQuote && quoteMetas.length > 0,
             staleTime: 10_000,

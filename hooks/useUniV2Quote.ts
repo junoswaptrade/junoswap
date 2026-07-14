@@ -3,16 +3,19 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import {
+    getV2Config,
+    resolveDexIds,
+    resolveSwapPath,
+    wrapQuoteResult,
+    UNISWAP_V2_ROUTER_ABI,
+    UNISWAP_V2_FACTORY_ABI,
+    ProtocolType,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
+import type { DEXType } from '@/lib/dex-meta'
 import type { QuoteResult } from '@/types/swap'
-import type { DEXType } from '@/types/dex'
-import { getV2Config, getDexsByProtocol, isV2Config, getDexConfig } from '@/lib/dex-config'
-import { UNISWAP_V2_ROUTER_ABI } from '@/lib/abis/uniswap-v2-router'
-import { UNISWAP_V2_FACTORY_ABI } from '@/lib/abis/uniswap-v2-factory'
-import { buildV2QuoteParams } from '@/services/dex/uniswap-v2'
-import { isSameToken, getSwapAddress, getWrapOperation } from '@/services/tokens'
-import { ProtocolType } from '@/lib/dex-config'
-
+import { isSameToken, getSwapAddress, getWrapOperation } from '@/lib/tokens'
 interface UseUniV2QuoteParams {
     tokenIn: Token | null
     tokenOut: Token | null
@@ -44,17 +47,10 @@ export function useUniV2Quote({
     dexId,
 }: UseUniV2QuoteParams): UseUniV2QuoteResult {
     const chainId = tokenIn?.chainId ?? tokenOut?.chainId ?? 1
-    const requestedDexIds = useMemo(() => {
-        if (!tokenIn) return []
-        if (!dexId) {
-            return getDexsByProtocol(chainId, ProtocolType.V2)
-        }
-        const ids = Array.isArray(dexId) ? dexId : [dexId]
-        return ids.filter((id) => {
-            const config = getDexConfig(chainId, id)
-            return config && isV2Config(config)
-        })
-    }, [dexId, tokenIn, chainId])
+    const requestedDexIds = useMemo(
+        () => (tokenIn ? resolveDexIds(chainId, ProtocolType.V2, dexId) : []),
+        [dexId, tokenIn, chainId]
+    )
     const wrapOperation = useMemo(() => {
         return getWrapOperation(tokenIn, tokenOut)
     }, [tokenIn, tokenOut])
@@ -116,18 +112,19 @@ export function useUniV2Quote({
         })
     }, [requestedDexIds, pairResults])
     const quoteParamsMap = useMemo(() => {
-        const params: Record<DEXType, ReturnType<typeof buildV2QuoteParams> | null> = {}
+        const params: Record<DEXType, { amountIn: bigint; path: Address[] } | null> = {}
         for (const id of requestedDexIds) {
             if (!tokenIn || !tokenOut || amountIn <= 0n) {
                 params[id] = null
             } else {
-                params[id] = buildV2QuoteParams(
-                    tokenIn.address as Address,
-                    tokenOut.address as Address,
+                params[id] = {
                     amountIn,
-                    chainId,
-                    dexConfigs[id]?.wnative
-                )
+                    path: resolveSwapPath(
+                        [tokenIn.address as Address, tokenOut.address as Address],
+                        chainId,
+                        dexConfigs[id]?.wnative
+                    ),
+                }
             }
         }
         return params
@@ -157,12 +154,7 @@ export function useUniV2Quote({
     const quotes: Record<DEXType, DexQuoteResult> = useMemo(() => {
         const results: Record<DEXType, DexQuoteResult> = {}
         if (wrapOperation && amountIn > 0n) {
-            const wrapQuote: QuoteResult = {
-                amountOut: amountIn,
-                sqrtPriceX96After: 0n,
-                initializedTicksCrossed: 0,
-                gasEstimate: wrapOperation === 'wrap' ? 50000n : 40000n,
-            }
+            const wrapQuote: QuoteResult = wrapQuoteResult(amountIn, wrapOperation)
             for (const id of requestedDexIds) {
                 results[id] = {
                     quote: wrapQuote,

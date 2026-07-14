@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { Token } from '@/types/token'
 import { useAccount, useChainId } from 'wagmi'
 import type { Address } from 'viem'
 import { toast } from 'sonner'
@@ -17,12 +18,10 @@ import {
     formatBalance,
     formatTokenAmount,
     parseTokenAmount,
-} from '@/services/tokens'
+} from '@/lib/tokens'
 import { getExplorerTxUrl } from '@/lib/explorer'
 import { toastError } from '@/lib/toast'
 import { Check } from 'lucide-react'
-import type { Token } from '@/types/tokens'
-
 interface SendDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void

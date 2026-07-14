@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useChainId, usePublicClient, useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import { getV3StakerAddress } from '@/lib/dex-config'
-import { UNISWAP_V3_STAKER_ABI } from '@/lib/abis/uniswap-v3-staker'
+import { getV3StakerAddress, UNISWAP_V3_STAKER_ABI } from '@coshi190/junoswap-sdk'
 import {
     getStakedTokenIds,
     addStakedTokenId,
@@ -45,7 +44,6 @@ export function useDepositedTokenIds(
         if (!hasStoredTokenIds(chainId, owner)) {
             setNeedsEventFallback(true)
         }
-        // refreshKey re-reads storage after a stake/unstake mutates it elsewhere.
     }, [owner, chainId, refreshKey])
     useEffect(() => {
         if (!needsEventFallback || !owner || !stakerAddress || !publicClient) {
@@ -147,8 +145,7 @@ export function useDepositedTokenIds(
     const refetch = useCallback(() => {
         refetchDeposits()
     }, [refetchDeposits])
-    // Re-validate on-chain when refreshKey bumps; the candidate set may be unchanged
-    // (e.g. unstake) yet the deposits() owner has flipped.
+
     useEffect(() => {
         if (refreshKey === undefined || refreshKey === 0) return
         refetchDeposits()

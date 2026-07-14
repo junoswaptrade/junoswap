@@ -4,11 +4,14 @@ import { useMemo } from 'react'
 import { useReadContract, useReadContracts, useChainId } from 'wagmi'
 import type { Address } from 'viem'
 import type { V3Position, PositionWithTokens, PositionDetails } from '@/types/earn'
-import type { Token } from '@/types/tokens'
-import { getV3Config, getV3StakerAddress } from '@/lib/dex-config'
-import { NONFUNGIBLE_POSITION_MANAGER_ABI } from '@/lib/abis/nonfungible-position-manager'
-import { UNISWAP_V3_FACTORY_ABI } from '@/lib/abis/uniswap-v3-factory'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
+import {
+    getV3Config,
+    getV3StakerAddress,
+    NONFUNGIBLE_POSITION_MANAGER_ABI,
+    UNISWAP_V3_FACTORY_ABI,
+    UNISWAP_V3_POOL_ABI,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { TOKEN_LISTS } from '@/lib/tokens'
 import { useGraduatedTokens } from '@/hooks/useGraduatedTokens'
 import { usePositionFees } from '@/hooks/usePositionFees'
@@ -566,9 +569,6 @@ export function usePositionsByTokenIds(
             })
             .filter((p): p is V3Position => p !== null)
     }, [positionData, tokenIds])
-    // Staked NFTs are held by the staker contract; simulate collect() from it
-    // (the authorized owner) to read live fees, same as useUserPositions does
-    // for wallet positions.
     const stakerAddress = getV3StakerAddress(effectiveChainId)
     const {
         feesMap,

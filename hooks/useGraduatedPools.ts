@@ -3,17 +3,18 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import { getV3Config } from '@/lib/dex-config'
+import {
+    getV3Config,
+    isLaunchpadChain as isLaunchpadChainFn,
+    UNISWAP_V3_FACTORY_ABI,
+    UNISWAP_V3_POOL_ABI,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { TOKEN_LISTS } from '@/lib/tokens'
-import { isLaunchpadChain as isLaunchpadChainFn } from '@/lib/abis/bonding-curve-junoswap'
-import { UNISWAP_V3_FACTORY_ABI } from '@/lib/abis/uniswap-v3-factory'
-import { UNISWAP_V3_POOL_ABI } from '@/lib/abis/uniswap-v3-pool'
 import { sortTokens, getTickSpacing } from '@/lib/liquidity-helpers'
 import { useGraduatedTokens } from '@/hooks/useGraduatedTokens'
 import type { V3PoolData } from '@/types/earn'
-import type { Token } from '@/types/tokens'
-
 const GRADUATED_FEE_TIER = 10000
 
 export function useGraduatedPools(chainId: number): { pools: V3PoolData[]; isLoading: boolean } {
@@ -26,7 +27,6 @@ export function useGraduatedPools(chainId: number): { pools: V3PoolData[]; isLoa
 
     const { tokens: enrichedTokens, isLoading: isLoadingTokens } = useGraduatedTokens(chainId)
 
-    // Pool discovery — batch factory.getPool
     const { data: poolAddressResults, isLoading: isLoadingPools } = useReadContracts({
         contracts: enrichedTokens.map((t) => ({
             address: v3Config!.factory as Address,
@@ -38,7 +38,6 @@ export function useGraduatedPools(chainId: number): { pools: V3PoolData[]; isLoa
         query: { enabled: enrichedTokens.length > 0 && isLaunchpadChain && !isLoadingTokens },
     })
 
-    // Map token index -> valid pool address
     const validPools = useMemo(() => {
         if (!poolAddressResults) return []
         return poolAddressResults
@@ -49,7 +48,6 @@ export function useGraduatedPools(chainId: number): { pools: V3PoolData[]; isLoa
             .filter((p) => p.address && p.address !== '0x0000000000000000000000000000000000000000')
     }, [poolAddressResults])
 
-    // Pool state — batch slot0 + liquidity
     const { data: poolStateResults, isLoading: isLoadingState } = useReadContracts({
         contracts: validPools.flatMap((p) => [
             {

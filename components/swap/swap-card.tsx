@@ -3,7 +3,16 @@
 import { Fragment, useMemo, useEffect, useRef, useState } from 'react'
 import { useAccount, useChainId } from 'wagmi'
 import { parseUnits, zeroAddress, type Address } from 'viem'
-import type { Token } from '@/types/tokens'
+import {
+    getDexConfig,
+    isV2Config,
+    getDefaultDexForChain,
+    getSupportedDexs,
+    ProtocolType,
+    getAggRouterAddress,
+    isAggRouterChain,
+} from '@coshi190/junoswap-sdk'
+import type { Token } from '@/types/token'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -13,8 +22,7 @@ import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { useMultiDexQuotes } from '@/hooks/useMultiDexQuotes'
 import { useRoutePriceImpact } from '@/hooks/useRoutePriceImpact'
 import { useDebounce } from '@/hooks/useDebounce'
-import { useUniV3SwapExecution } from '@/hooks/useUniV3SwapExecution'
-import { useUniV2SwapExecution } from '@/hooks/useUniV2SwapExecution'
+import { useSwapExecution } from '@/hooks/useSwapExecution'
 import { useAggRouterSwapExecution } from '@/hooks/useAggRouterSwapExecution'
 import { useSplitRoute } from '@/hooks/useSplitRoute'
 import { useCrossDexRoute } from '@/hooks/useCrossDexRoute'
@@ -29,28 +37,24 @@ import {
 import { useTokenApproval } from '@/hooks/useTokenApproval'
 import { useSwapUrlSync } from '@/hooks/useSwapUrlSync'
 import { useChainTokens } from '@/hooks/useChainTokens'
-import { calculateMinOutput } from '@/services/dex/uniswap-v3'
-import { calculateMinOutput as calculateMinOutputV2 } from '@/services/dex/uniswap-v2'
-import { formatBalance, formatTokenAmount, formatDisplayAmount } from '@/services/tokens'
+import { calculateMinOutput } from '@coshi190/junoswap-sdk'
+import {
+    formatBalance,
+    formatTokenAmount,
+    formatDisplayAmount,
+    getDefaultPairTokens,
+    isSameToken,
+    getWrapOperation,
+} from '@/lib/tokens'
 import { ConnectModal } from '@/components/web3/connect-modal'
 import { toastError } from '@/lib/toast'
-import { getDefaultPairTokens } from '@/lib/tokens'
-import {
-    getDexConfig,
-    isV2Config,
-    getDefaultDexForChain,
-    getSupportedDexs,
-    ProtocolType,
-} from '@/lib/dex-config'
 import type { RouteQuote } from '@/types/routing'
 import { TokenSelect } from './token-select'
 import { SettingsMenu } from './settings-menu'
 import { ArrowDownUp, ArrowRightLeft, CandlestickChart } from 'lucide-react'
 import { toast } from 'sonner'
-import { isSameToken, getWrapOperation } from '@/services/tokens'
 import { isValidNumberInput, cn } from '@/lib/utils'
 import { getChainMetadata, isNativeToken, shouldSkipUnwrap } from '@/lib/wagmi'
-import { getAggRouterAddress, isAggRouterChain } from '@/lib/abis/agg-router-junoswap'
 import { MIN_AGG_IMPROVEMENT_BPS } from '@/lib/routing-config'
 import { useKkubUnwrap } from '@/hooks/useKkubUnwrap'
 
@@ -256,9 +260,8 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
             return calculateMinOutput(aggPlan.predictedNetOut, Math.floor(settings.slippage * 100))
         }
         if (!effectiveQuote || !tokenOut) return 0n
-        const calcFn = isV2Protocol ? calculateMinOutputV2 : calculateMinOutput
-        return calcFn(effectiveQuote.amountOut, Math.floor(settings.slippage * 100))
-    }, [useAggPath, aggPlan, effectiveQuote, tokenOut, settings.slippage, isV2Protocol])
+        return calculateMinOutput(effectiveQuote.amountOut, Math.floor(settings.slippage * 100))
+    }, [useAggPath, aggPlan, effectiveQuote, tokenOut, settings.slippage])
     const displayAmountOut = useMemo(() => {
         if (isQuoteLoading) return '...'
         if (useAggPath && aggPlan && tokenOut) {
@@ -304,25 +307,15 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
     }, [needsApproval, wrapOp])
     const isKubUnwrapDirect = !!wrapOp && wrapOp === 'unwrap' && shouldSkipUnwrap(chainId)
     const skipSwapSimulation = needsApprovalCheck || isKubUnwrapDirect
-    const v3Swap = useUniV3SwapExecution({
+    const dexSwap = useSwapExecution({
+        protocol: isV2Protocol ? ProtocolType.V2 : ProtocolType.V3,
         tokenIn: tokenIn ?? tokens[0]!,
         tokenOut: tokenOut ?? tokens[1] ?? tokens[0]!,
         amountIn: amountInBigInt,
         amountOutMinimum,
         recipient: address ?? zeroAddress,
-        slippage: settings.slippage,
         deadlineMinutes: settings.deadlineMinutes,
         fee,
-        route: selectedDexRoute?.route,
-        skipSimulation: skipSwapSimulation,
-    })
-    const v2Swap = useUniV2SwapExecution({
-        tokenIn: tokenIn ?? tokens[0]!,
-        tokenOut: tokenOut ?? tokens[1] ?? tokens[0]!,
-        amountIn: amountInBigInt,
-        amountOutMinimum,
-        recipient: address ?? zeroAddress,
-        deadlineMinutes: settings.deadlineMinutes,
         route: selectedDexRoute?.route,
         skipSimulation: skipSwapSimulation,
     })
@@ -345,7 +338,7 @@ export function SwapCard({ tokens: tokensOverride, showChart, onToggleChart }: S
         isError: swapIsError,
         error: swapError,
         hash: swapHash,
-    } = useAggPath ? aggSwap : isV2Protocol ? v2Swap : v3Swap
+    } = useAggPath ? aggSwap : dexSwap
     const isNativeOutput = !!tokenOut && isNativeToken(tokenOut.address as Address)
     const skipUnwrap = (!!isNativeOutput || isKubUnwrapDirect) && shouldSkipUnwrap(chainId)
     const {
