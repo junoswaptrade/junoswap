@@ -3,7 +3,7 @@ import type { Timeframe, ChartMode, CandlestickData } from '@/types/chart'
 import { TIMEFRAME_DURATIONS } from '@/types/chart'
 import { PUMP_FEE_BPS } from './launchpad'
 
-const TOTAL_SUPPLY = 1_000_000_000
+export const TOTAL_SUPPLY = 1_000_000_000
 const VIRTUAL_AMOUNT = 3400n * 10n ** 18n
 const Q96 = 2n ** 96n
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useMemo, useState } from 'react'
+import { useGraduatedPoolPrice } from '@/hooks/useGraduatedPoolPrice'
 import {
     createChart,
     CandlestickSeries,
@@ -24,19 +25,13 @@ import {
 import type { Address } from 'viem'
 import { formatEther } from 'viem'
 import { useChartColors, toLocalChartTime } from '@/lib/lightweight-chart-theme'
-import { useReadContract } from 'wagmi'
 import { useTokenPriceHistory, TIMEFRAMES } from '@/hooks/useTokenPriceHistory'
 import type { ChartMode } from '@/types/chart'
 import { TIMEFRAME_DURATIONS } from '@/types/chart'
 import { cn, formatAddress } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
-import {
-    buildCreatorMarkers,
-    calculatePriceFromSqrtPrice,
-    computeDailyMetrics,
-} from '@/services/launchpad/chart'
+import { buildCreatorMarkers, computeDailyMetrics, TOTAL_SUPPLY } from '@/services/launchpad/chart'
 import type { DailyMetrics } from '@/services/launchpad/chart'
-import { UNISWAP_V3_POOL_ABI } from '@coshi190/junoswap-sdk'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { useNativeUsdPriceContext } from './native-usd-price-provider'
@@ -109,15 +104,12 @@ export function TokenChart({
         setChartMode,
     } = useTokenPriceHistory(tokenAddr, isGraduated, graduatedAt, creatorAddress)
 
-    const { data: slot0 } = useReadContract({
-        address: poolAddress,
-        abi: UNISWAP_V3_POOL_ABI,
-        functionName: 'slot0' as const,
+    const { price: livePoolPrice } = useGraduatedPoolPrice({
+        poolAddress,
+        tokenAddr,
+        wrappedNative: wrappedNative as Address | undefined,
         chainId,
-        query: {
-            enabled: !!isGraduated && !!poolAddress,
-            refetchInterval: 15_000,
-        },
+        isGraduated,
     })
 
     const chartColors = useChartColors()
@@ -139,28 +131,21 @@ export function TokenChart({
 
         if (result.length === 0) return result
 
-        if (isGraduated && poolAddress && slot0) {
-            const sqrtPriceX96 = (
-                slot0 as [bigint, number, number, number, number, number, boolean]
-            )[0]
-            if (sqrtPriceX96 && sqrtPriceX96 > 0n && wrappedNative) {
-                const tokenIsToken0 = tokenAddr.toLowerCase() < wrappedNative.toLowerCase()
-                const price = calculatePriceFromSqrtPrice(sqrtPriceX96, tokenIsToken0)
-                const value = chartMode === 'mcap' ? price * 1e9 : price
-                const displayValue = nativeUsdPrice !== null ? value * nativeUsdPrice : value
-                const lastIdx = result.length - 1
+        if (isGraduated && poolAddress && livePoolPrice !== null) {
+            const value = chartMode === 'mcap' ? livePoolPrice * TOTAL_SUPPLY : livePoolPrice
+            const displayValue = nativeUsdPrice !== null ? value * nativeUsdPrice : value
+            const lastIdx = result.length - 1
 
-                result = result.map((d, i) =>
-                    i === lastIdx
-                        ? {
-                              ...d,
-                              close: displayValue,
-                              high: Math.max(d.high, displayValue),
-                              low: Math.min(d.low, displayValue),
-                          }
-                        : d
-                )
-            }
+            result = result.map((d, i) =>
+                i === lastIdx
+                    ? {
+                          ...d,
+                          close: displayValue,
+                          high: Math.max(d.high, displayValue),
+                          low: Math.min(d.low, displayValue),
+                      }
+                    : d
+            )
         } else if (
             virtualAmount !== undefined &&
             nativeReserve !== undefined &&
@@ -171,7 +156,7 @@ export function TokenChart({
             const price =
                 parseFloat(formatEther(virtualAmount + nativeReserve)) /
                 parseFloat(formatEther(tokenReserve))
-            const value = chartMode === 'mcap' ? price * 1e9 : price
+            const value = chartMode === 'mcap' ? price * TOTAL_SUPPLY : price
             const displayValue = nativeUsdPrice !== null ? value * nativeUsdPrice : value
             const lastIdx = result.length - 1
 
@@ -217,10 +202,10 @@ export function TokenChart({
         timeframe,
         isGraduated,
         poolAddress,
-        slot0,
-        tokenAddr,
-        wrappedNative,
+        livePoolPrice,
     ])
+
+    const visibleData = useMemo(() => displayData.filter((d) => d.volume > 0), [displayData])
 
     const ohlcvRef = useRef<HTMLDivElement>(null)
     const currentOhlcv = useRef<{
@@ -468,7 +453,7 @@ export function TokenChart({
     }, [creatorAddress])
 
     useEffect(() => {
-        if (!candleSeriesRef.current || !volumeSeriesRef.current || displayData.length === 0) return
+        if (!candleSeriesRef.current || !volumeSeriesRef.current || visibleData.length === 0) return
 
         const isUsd = nativeUsdPrice !== null
         const prefix = isUsd ? '$' : ''
@@ -481,7 +466,7 @@ export function TokenChart({
         })
 
         let lastT = -Infinity
-        const localTimes = displayData.map((d) => {
+        const localTimes = visibleData.map((d) => {
             let t = toLocalChartTime(d.time)
             if (t <= lastT) t = lastT + 1
             lastT = t
@@ -489,7 +474,7 @@ export function TokenChart({
         })
 
         candleSeriesRef.current.setData(
-            displayData.map((d, i) => ({
+            visibleData.map((d, i) => ({
                 time: localTimes[i] as LWTime,
                 open: d.open,
                 high: d.high,
@@ -499,7 +484,7 @@ export function TokenChart({
         )
 
         volumeSeriesRef.current.setData(
-            displayData.map((d, i) => ({
+            visibleData.map((d, i) => ({
                 time: localTimes[i] as LWTime,
                 value: d.volume,
                 color: d.close >= d.open ? chartColors.volumeUp : chartColors.volumeDown,
@@ -507,13 +492,13 @@ export function TokenChart({
         )
 
         const bucketToCandle = new Map<number, { chartTime: LWTime; high: number }>()
-        displayData.forEach((d, i) =>
+        visibleData.forEach((d, i) =>
             bucketToCandle.set(d.time, { chartTime: localTimes[i] as LWTime, high: d.high })
         )
         const markerPoints = buildCreatorMarkers(
             creatorTrades,
             timeframe,
-            displayData.map((d) => d.time)
+            visibleData.map((d) => d.time)
         )
         markersRef.current?.setMarkers(
             markerPoints.map((p) => {
@@ -534,7 +519,7 @@ export function TokenChart({
             priceLineRef.current = null
         }
 
-        const lastCandle = displayData[displayData.length - 1]
+        const lastCandle = visibleData[visibleData.length - 1]
         if (lastCandle) {
             const isUp = lastCandle.close >= lastCandle.open
             priceLineRef.current = candleSeriesRef.current.createPriceLine({
@@ -568,6 +553,7 @@ export function TokenChart({
         chartRef.current?.timeScale().fitContent()
     }, [
         displayData,
+        visibleData,
         chartMode,
         nativeUsdPrice,
         chartColors,

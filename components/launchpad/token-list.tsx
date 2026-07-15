@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { useTokenList } from '@/hooks/useTokenList'
+import { useGraduatedMarketCaps } from '@/hooks/useGraduatedMarketCaps'
+import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import type { LaunchpadSortKey } from '@/types/launchpad'
 import { TokenCard } from './token-card'
 import { SortTabs } from './sort-tabs'
@@ -15,22 +17,31 @@ interface TokenListProps {
 export function TokenList({ searchQuery = '' }: TokenListProps) {
     const { tokens, snapshotMap, isLoading } = useTokenList()
     const [sortKey, setSortKey] = useState<LaunchpadSortKey>('last-trade')
+    const chainId = useLaunchpadChainId()
+
+    const graduatedAddresses = useMemo(
+        () => tokens.filter((t) => t.isGraduated).map((t) => t.address),
+        [tokens]
+    )
+    const liveMarketCaps = useGraduatedMarketCaps(graduatedAddresses, chainId)
 
     const enrichedTokens = useMemo(() => {
         return tokens.map((token) => {
             const snapshot = snapshotMap.get(token.address.toLowerCase())
+            const liveMarketCap = liveMarketCaps.get(token.address.toLowerCase())
 
             return {
                 token,
                 tokenName: token.name,
                 tokenSymbol: token.symbol,
                 isGraduated: !!token.isGraduated,
-                marketCap: snapshot?.marketCapNative,
+                marketCap:
+                    liveMarketCap !== undefined ? String(liveMarketCap) : snapshot?.marketCapNative,
                 athMarketCap: snapshot?.athMarketCapNative,
                 priceChange1dPct: snapshot?.priceChange1dPct ?? undefined,
             }
         })
-    }, [tokens, snapshotMap])
+    }, [tokens, snapshotMap, liveMarketCaps])
 
     const filtered = useMemo(() => {
         if (!searchQuery.trim()) return enrichedTokens

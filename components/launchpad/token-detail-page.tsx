@@ -5,6 +5,7 @@ import type { Address } from 'viem'
 import { useLaunchpadChainId } from '@/hooks/useLaunchpadChainId'
 import { INTERMEDIARY_TOKENS } from '@/lib/routing-config'
 import { useTokenReserves } from '@/hooks/useTokenReserves'
+import { useGraduatedPoolPrice } from '@/hooks/useGraduatedPoolPrice'
 import type { DailyMetrics } from '@/services/launchpad/chart'
 import { useTokenList } from '@/hooks/useTokenList'
 import { useGraduatedPoolAddress } from '@/hooks/useGraduatedPoolAddress'
@@ -50,8 +51,17 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
         wrappedNative as Address | undefined
     )
 
+    const { marketCap: liveGraduatedMarketCap } = useGraduatedPoolPrice({
+        poolAddress,
+        tokenAddr,
+        wrappedNative: wrappedNative as Address | undefined,
+        chainId,
+        isGraduated,
+    })
+
     const marketCap = useMemo(() => {
         if (isGraduated) {
+            if (liveGraduatedMarketCap !== null) return String(liveGraduatedMarketCap)
             return snapshotMap.get(tokenAddr.toLowerCase())?.marketCapNative ?? '0'
         }
         if (virtualAmount > 0n && nativeReserve > 0n && tokenReserve > 0n) {
@@ -62,7 +72,15 @@ export function TokenDetailPage({ tokenAddr }: TokenDetailPageProps) {
             )
         }
         return '0'
-    }, [isGraduated, tokenAddr, virtualAmount, nativeReserve, tokenReserve, snapshotMap])
+    }, [
+        isGraduated,
+        tokenAddr,
+        virtualAmount,
+        nativeReserve,
+        tokenReserve,
+        snapshotMap,
+        liveGraduatedMarketCap,
+    ])
 
     const symbol = tokenInfo?.symbol || 'TOKEN'
     const name = tokenInfo?.name || 'Unknown Token'
